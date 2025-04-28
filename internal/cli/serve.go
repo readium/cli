@@ -119,6 +119,7 @@ to the internet except for testing/debugging purposes.`,
 				if s3EndpointFlag != "" {
 					o.BaseEndpoint = aws.String(s3EndpointFlag)
 				}
+				o.DisableLogOutputChecksumValidationSkipped = true // Non-AWS S3 tends not to support this and it causes logspam
 			})
 		} else {
 			slog.Warn("S3 credentials retrieval failed, S3 support will be disabled", "error", err)
