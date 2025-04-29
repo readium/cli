@@ -9,7 +9,7 @@ import (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:     "rwp",
+	Use:     "readium",
 	Short:   "Utilities for Readium Web Publications",
 	Version: version.Version,
 }

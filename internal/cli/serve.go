@@ -18,7 +18,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/readium/cli/pkg/serve"
-	"github.com/readium/go-toolkit/cmd/rwp/cmd/serve/client"
+	"github.com/readium/cli/pkg/serve/client"
 	"github.com/readium/go-toolkit/pkg/streamer"
 	"github.com/spf13/cobra"
 	"google.golang.org/api/option"

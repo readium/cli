@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/pkg/errors"
-	"github.com/readium/go-toolkit/cmd/rwp/cmd/helpers"
+	"github.com/readium/cli/pkg/helpers"
 	"github.com/readium/go-toolkit/pkg/asset"
 	"github.com/readium/go-toolkit/pkg/fetcher"
 	"github.com/readium/go-toolkit/pkg/manifest"
@@ -44,13 +44,13 @@ printed to stdout.
 
 Examples:
   Print out a compact JSON RWPM. 
-  $ rwp manifest publication.epub
+  $ readium manifest publication.epub
 
   Pretty-print a JSON RWPM using two-space indent.
-  $ rwp manifest --indent "  " publication.epub
+  $ readium manifest --indent "  " publication.epub
 
   Extract the publication title with ` + "`jq`" + `.
-  $ rwp manifest publication.epub | jq -r .metadata.title
+  $ readium manifest publication.epub | jq -r .metadata.title
   `,
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {

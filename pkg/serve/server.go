@@ -7,7 +7,7 @@ import (
 	"cloud.google.com/go/storage"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/gorilla/mux"
-	"github.com/readium/go-toolkit/cmd/rwp/cmd/serve/cache"
+	"github.com/readium/cli/pkg/serve/cache"
 	"github.com/readium/go-toolkit/pkg/archive"
 	"github.com/readium/go-toolkit/pkg/streamer"
 )

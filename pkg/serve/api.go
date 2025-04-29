@@ -18,7 +18,7 @@ import (
 	"github.com/gorilla/mux"
 	httprange "github.com/gotd/contrib/http_range"
 	"github.com/pkg/errors"
-	"github.com/readium/go-toolkit/cmd/rwp/cmd/serve/cache"
+	"github.com/readium/cli/pkg/serve/cache"
 	"github.com/readium/go-toolkit/pkg/archive"
 	"github.com/readium/go-toolkit/pkg/asset"
 	"github.com/readium/go-toolkit/pkg/fetcher"
