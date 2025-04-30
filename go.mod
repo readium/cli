@@ -12,7 +12,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/gotd/contrib v0.21.0
 	github.com/pkg/errors v0.9.1
-	github.com/readium/go-toolkit v0.8.2-0.20250422200714-f03e26757e87
+	github.com/readium/go-toolkit v0.9.0
 	github.com/spf13/cobra v1.9.1
 	github.com/vmihailenco/go-tinylfu v0.2.2
 	github.com/zeebo/xxh3 v1.0.2
