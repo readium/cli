@@ -44,24 +44,24 @@ readium manifest --infer-a11y=split publication.epub
 
 It takes one of the following arguments:
 
-| Option           | Description                                                                                            |
-|------------------|--------------------------------------------------------------------------------------------------------|
-| `no` (*default*) | No accessibility metadata will be inferred.                                                            |
-| `merged`         | Accessibility metadata will be inferred and merged with the authored ones in `metadata.accessibility`. |
-| `split`          | Accessibility metadata will be inferred but stored separately in `metadata.inferredAccessibility`.     |
+| Option | Description |
+| ------ |------------ |
+| `no` (*default*) | No accessibility metadata will be inferred. |
+| `merged` | Accessibility metadata will be inferred and merged with the authored ones in `metadata.accessibility`. |
+| `split` | Accessibility metadata will be inferred but stored separately in `metadata.inferredAccessibility`. |
 
 ##### Inferred metadata
 
-| Key | Value | Inferred? |
-|-----|-------|-----------|
-| `accessMode` | `auditory` | If the publication contains a reference to an audio or video resource (inspect `resources` and `readingOrder` in RWPM) |
-| `accessMode` | `visual` | If the publications contains a reference to an image or a video resource (inspect `resources` and `readingOrder` in RWPM) |
-| `accessModeSufficient` | `textual` | If the publication is partially or fully accessible (WCAG A or above)<br>Or if the publication does not contain any image, audio or video resource (inspect "resources" and "readingOrder" in RWPM)<br>Or if the only image available can be identified as a cover |
-| `feature` | `displayTransformability` | If the publication is fully accessible (WCAG AA or above)<br>:warning: This property should only be inferred for reflowable EPUB files as it doesn't apply to other formats (FXL, PDF, audiobooks, CBZ/CBR). |
-| `feature` | `pageNavigation` | If the publications contains a page list (check for the presence of a `pageList` collection in RWPM) |
-| `feature` | `tableOfContents` | If the publications contains a table of contents (check for the presence of a `toc` collection in RWPM) |
-| `feature` | `MathML` | If the publication contains any resource with MathML (check for the presence of the `contains` property where the value is `mathml` in `readingOrder` or `resources` in RWPM) |
-| `feature` | `synchronizedAudioText` | If the publication contains any reference to Media Overlays |
+| Key | Value | Rules |
+| --- | ----- | ----- |
+| `accessMode` | `auditory` | If the publication contains a reference to an audio or video resource (inspect `resources` and `readingOrder` in RWPM). |
+| `accessMode` | `visual` | If the publications contains a reference to an image or a video resource (inspect `resources` and `readingOrder` in RWPM). |
+| `accessModeSufficient` | `textual` | If the publication is partially or fully accessible (WCAG A or above).<br>Or if the publication does not contain any image, audio or video resource (inspect "resources" and "readingOrder" in RWPM)<br>Or if the only image available can be identified as a cover. |
+| `feature` | `displayTransformability` | :warning: This rule is only used with reflowable EPUB files that conforms to WCAG AA or above. |
+| `feature` | `pageNavigation` | If the publications contains a page list (check for the presence of a `pageList` collection in RWPM). |
+| `feature` | `tableOfContents` | If the publications contains a table of contents (check for the presence of a `toc` collection in RWPM). |
+| `feature` | `MathML` | If the publication contains any resource with MathML (check for the presence of the `contains` property where the value is `mathml` in `readingOrder` or `resources` in RWPM). |
+| `feature` | `synchronizedAudioText` | If the publication contains any reference to Media Overlays. |
 
 ### Inspecting images
 
@@ -79,11 +79,17 @@ When using this flag, each image returned in the manifest will contain the follo
 * `animated` (a boolean) under `properties`
 * `hash` (an array of object) under `properties`
 
-By default, both SHA-256 and MD5 hashes are calculated for each image, but this behaviour can be overriden using the `--hash` flag with one of the following values:
+By default, both SHA-256 and MD5 hashes are calculated for each image, but this behaviour can be overriden using the `--hash` flag.
+
+```sh
+readium manifest --inspect-images --hash=sha256,phash-dct publication.epub
+```
+
+It supports one or more values from the following list:
 
 | Option | Algorithm |
 | ------ | --------- |
-| `sha256` | SHA-256 |
-| `md5` | MD5 |
+| `sha256` (*default*) | SHA-256 |
+| `md5` (*default*) | MD5 |
 | `phash-dct` | [pHash DCT](https://phash.org/) |
 | `https://blurha.sh` | [BlurHash](https://blurha.sh) |
