@@ -17,6 +17,15 @@ Builds are also available directly from the [releases section](https://github.co
 | [`manifest`](#the-manifest-command) | The `manifest` command can parse a publication and return a [Readium Web Publication Manifest](https://readium.org/webpub-manifest/), which is printed to `stdout`. |
 | [`serve`](#the-serve-command) | The `serve` command starts an HTTPS server that can serve publications. A log is printed to `stdout`. |
 
+## Potential additions
+
+| Command | Description | Discussion |
+| ------- | ----------- | ---------- |
+| `divina2epub` | Convert a Divina publications into a fixed layout EPUB files that conforms to EPUB 3.4. | |
+| `optimize` | Optimize images contained in an EPUB or a Readium Web Publication. | |
+| `package` | Package images or audio files into a Readium Web Publication. | <https://github.com/readium/cli/discussions/2> |
+| `unpackage` | Unpackage an EPUB or a Readium Web Publication. | |
+
 ## The `manifest` command
 
 ### Examples
@@ -36,7 +45,7 @@ Builds are also available directly from the [releases section](https://github.co
 
 ### Accessibility inferences
 
-`readium manifest` can infer additional accessibility metadata when they are missing, with the `--infer-a11y` flag. 
+The `manifest` command can infer additional accessibility metadata when they are missing, with the `--infer-a11y` flag. 
 
 ```sh
 readium manifest --infer-a11y=split publication.epub
@@ -65,7 +74,7 @@ It takes one of the following arguments:
 
 ### Inspecting images
 
-`readium manifest` can inspect images and extract additional information from them, with the `--inspect-images` flag.
+The `manifest` command can inspect images and extract additional information from them, with the `--inspect-images` flag.
 
 ```sh
 readium manifest --inspect-images publication.epub
@@ -128,12 +137,3 @@ For example:
 * I'd like to stream <https://github.com/IDPF/epub3-samples/releases/download/20230704/accessible_epub_3.epub>
 * Which can be Base 64 encoded to `aHR0cHM6Ly9naXRodWIuY29tL0lEUEYvZXB1YjMtc2FtcGxlcy9yZWxlYXNlcy9kb3dubG9hZC8yMDIzMDcwNC9hY2Nlc3NpYmxlX2VwdWJfMy5lcHVi`
 * As long as the HTTP server from the `serve` command is running, I can access the Readium Web Publication Manifest at <http://localhost:15080/aHR0cHM6Ly9naXRodWIuY29tL0lEUEYvZXB1YjMtc2FtcGxlcy9yZWxlYXNlcy9kb3dubG9hZC8yMDIzMDcwNC9hY2Nlc3NpYmxlX2VwdWJfMy5lcHVi/manifest.json>
-
-## Potential additions
-
-| Command | Description | Discussion |
-| ------- | ----------- | ---------- |
-| `divina2epub` | Convert a Divina publications into a fixed layout EPUB files that conforms to EPUB 3.4. | |
-| `optimize` | Optimize images contained in an EPUB or a Readium Web Publication. | |
-| `package` | Package images or audio files into a Readium Web Publication. | <https://github.com/readium/cli/discussions/2> |
-| `unpackage` | Unpackage an EPUB or a Readium Web Publication. | |
