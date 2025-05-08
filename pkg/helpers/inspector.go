@@ -30,7 +30,7 @@ func (n *ImageInspector) TransformLink(link manifest.Link) manifest.Link {
 		return link
 	}
 
-	newLink, err := analyzer.Image(n.Filesystem, link, n.Algorithms)
+	newLink, err := analyzer.InspectImage(n.Filesystem, link, n.Algorithms)
 	if err != nil {
 		n.err = errors.Wrap(err, "failed inspecting image "+link.Href.String())
 		return link
