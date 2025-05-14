@@ -30,19 +30,22 @@ Builds are also available directly from the [releases section](https://github.co
 ### Examples
 
 * Print out a compact JSON RWPM.
+
     ```sh
     readium manifest publication.epub
     ```
 * Pretty-print a JSON RWPM using two-space indent.
+
     ```she
     readium manifest --indent "  " publication.epub
     ```
 * Extract the publication title with `jq`.
+
     ```sh
     readium manifest publication.epub | jq -r .metadata.title
     ```
 
-### Accessibility inferences
+### Inferring accessibility metadata
 
 The `manifest` command can infer additional accessibility metadata when they are missing, with the `--infer-a11y` flag. 
 
@@ -58,7 +61,7 @@ It takes one of the following arguments:
 | `merged` | Accessibility metadata will be inferred and merged with the authored ones in `accessibility`. |
 | `split` | Accessibility metadata will be inferred but stored separately in `https://readium.org/webpub-manifest#inferredAccessibility`. |
 
-##### Inferred metadata
+#### List of inferred metadata
 
 | Key | Value | Rules |
 | --- | ----- | ----- |
@@ -87,11 +90,41 @@ When using this flag, each image returned in the manifest will contain the follo
 * `animated` (a boolean) under `properties`
 * `hash` (an array of object) under `properties`
 
-By default, a SHA-256 hash is calculated for each image, but this behaviour can be overriden using the `--hash` flag to use additional or different algorithms.
+
+### Ignoring images
+
+The `manifest` command provides two different flags for ignoring images, either by:
+
+* using a directory with the `--infer-a11y-ignore-image-dir` flag
+* or a list of algorithms/hashes with the `--infer-a11y-ignore-image-hashes` flag
+
+The `--infer-a11y-ignore-image-dir` needs the path to a directory as an argument:
 
 ```sh
-readium manifest --inspect-images --hash=sha256,phash-dct publication.epub
+readium manifest --infer-a11y=split --infer-a11y-ignore-image-dir=directory publication.epub
 ```
+
+The `--infer-a11y-ignore-image-hashes` flag takes one or more hashes (in the format &lt;algorithm&gt;:&lt;base64 value&gt;) separated by commas. It will automatically detect the list of algorithms and use them to inspect images.
+
+```sh
+readium manifest --infer-a11y=split --infer-a11y-ignore-image-hashes=phash-dct:YzZTDc7IMzk=,sha256:EvaoUnJkxsWkMM0NUf4CwOZMMvEpDRKk7omCBSN67Gc= publication.epub
+```
+
+### Using different hashing algorithms
+
+By default, this utility will default to SHA-256 when inspecting images or ignoring images from a directory. This behaviour can be overriden using the `--hash` flag to use additional or different algorithms.
+
+* Inspecting images.
+
+  ```sh
+  readium manifest --inspect-images --hash=sha256,phash-dct publication.epub
+  ```
+    
+* Ignoring images from a directory.
+
+  ```sh
+  readium manifest --infer-a11y=split --infer-a11y-ignore-image-dir=directory --hash=sha256,phash-dct publication.epub
+  ```
 
 It supports one or more values from the following list:
 
@@ -102,28 +135,7 @@ It supports one or more values from the following list:
 | `phash-dct` | [pHash DCT](https://phash.org/) |
 | `https://blurha.sh` | [BlurHash](https://blurha.sh) |
 
-### Ignoring images
-
-The `manifest` command provides two different flags for ignoring images, either by:
-
-* using a directory with the `--infer-a11y-ignore-image-dir` flag
-* or a list of algorithms/hashes with the `--infer-a11y-ignore-image-hashes` flag
-
-By default, the `--infer-a11y-ignore-image-dir` flag relies on SHA-256 to detect images that should be ignored. The `--hash` flag can be used to provide a different list of algorithms.
-
-```sh
-readium manifest --infer-a11y=split --infer-a11y-ignore-image-dir=directory --hash=sha256,phash-dct publication.epub
-```
-
-The `--infer-a11y-ignore-image-hashes` flag takes one or more hashes in the format &lt;algorithm&gt;:&lt;base64 value&gt; separated by commas. The utility will automatically detect the list of algorithms and use them to inspect images.
-
-Hashes are in the format 
-
-```sh
-readium manifest --infer-a11y=split --infer-a11y-ignore-image-hashes=phash-dct:YzZTDc7IMzk=,sha256:EvaoUnJkxsWkMM0NUf4CwOZMMvEpDRKk7omCBSN67Gc= publication.epub
-```
-
-Perceptual hashing algorithms such as pHash-DCT are available to detect similar images (or an identical image in a different format), but they have a higher risk of collision than cryptographic hashes such as SHA-256.
+In addition to cryptographic hashing algorithms (such as SHA-256 and MD5), perceptual ones such as pHash-DCT are also available. They're useful for detecting similar images or an identical image in a different format, but they have a higher risk of collision than cryptographic hashes.
 
 
 ## The `serve` command
@@ -133,6 +145,7 @@ By default, the `serve` command will start an HTTP server listening by default o
 ### Examples
 
 * Serve files from a directory.
+
     ```sh
     readium serve directory
     ```
