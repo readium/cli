@@ -35,9 +35,6 @@ var inferIgnoreImageHashesFlag []string
 // Ignore the images in a given directory when inferring textual accessibility.
 var inferIgnoreImageDirectoryFlag string
 
-// Hashes gathered for images in ignored images directory.
-var inferIgnoreImageDirectoryHashesFlag []string
-
 // Hashes to use when enhancing links, such as with image inspection. Note visual hashes are more computationally expensive. Acceptable values: sha256,md5,phash-dct,https://blurha.sh
 var hash []string
 
@@ -108,11 +105,11 @@ Examples:
 
 		// Images in directory to ignore for accessibility inference
 		if inferIgnoreImageDirectoryFlag != "" {
-			ignoreableImageHashAlgorithms := make([]manifest.HashAlgorithm, len(inferIgnoreImageDirectoryHashesFlag))
-			if len(inferIgnoreImageDirectoryHashesFlag) == 0 {
-				return fmt.Errorf("no hash algorithms provided for images in ignored image directory")
+			ignoreableImageHashAlgorithms := make([]manifest.HashAlgorithm, len(hash))
+			if len(hash) == 0 {
+				return fmt.Errorf("no hash algorithms provided for hashing images in ignored image directory")
 			}
-			for i, h := range inferIgnoreImageDirectoryHashesFlag {
+			for i, h := range hash {
 				ignoreableImageHashAlgorithms[i] = manifest.HashAlgorithm(h)
 			}
 
@@ -218,9 +215,8 @@ func init() {
 	manifestCmd.Flags().StringVarP(&indentFlag, "indent", "i", "", "Indentation used to pretty-print")
 	manifestCmd.Flags().Var(&inferA11yFlag, "infer-a11y", "Infer accessibility metadata: no, merged, split")
 	manifestCmd.Flags().BoolVar(&inferPageCountFlag, "infer-page-count", false, "Infer the number of pages from the generated position list.")
-	manifestCmd.Flags().StringSliceVar(&hash, "hash", []string{string(manifest.HashAlgorithmSHA256), string(manifest.HashAlgorithmMD5)}, "Hashes to use when enhancing links, such as with image inspection. Note visual hashes are more computationally expensive. Acceptable values: sha256,md5,phash-dct,https://blurha.sh")
+	manifestCmd.Flags().StringSliceVar(&hash, "hash", []string{string(manifest.HashAlgorithmSHA256)}, "Hashes to use when enhancing links, such as with image inspection. Note visual hashes are more computationally expensive. Acceptable values: sha256,md5,phash-dct,https://blurha.sh")
 	manifestCmd.Flags().BoolVar(&inspectImagesFlag, "inspect-images", false, "Inspect images in the manifest. Their links will be enhanced with size, width and height, and hashes")
 	manifestCmd.Flags().StringSliceVar(&inferIgnoreImageHashesFlag, "infer-a11y-ignore-image-hashes", nil, "Ignore the given hashes when inferring textual accessibility. Hashes are in the format <algorithm>:<base64 value>, separated by commas.")
 	manifestCmd.Flags().StringVar(&inferIgnoreImageDirectoryFlag, "infer-a11y-ignore-image-dir", "", "Ignore the images in a given directory when inferring textual accessibility.")
-	manifestCmd.Flags().StringSliceVar(&inferIgnoreImageDirectoryHashesFlag, "infer-a11y-ignore-image-dir-hashes", []string{string(manifest.HashAlgorithmSHA256), string(manifest.HashAlgorithmPhashDCT)}, "Hashes gathered for images in ignored images directory.")
 }
