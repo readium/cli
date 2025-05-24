@@ -11,7 +11,7 @@ import (
 var rootCmd = &cobra.Command{
 	Use:     "readium",
 	Short:   "Utilities for Readium Web Publications",
-	Version: version.Version,
+	Version: Version + " (go-toolkit " + version.Version + ")",
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
