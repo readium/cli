@@ -195,6 +195,16 @@ Examples:
 			}
 		}
 
+		newLinks := make([]manifest.Link, 0, len(pub.Manifest.Links))
+		for _, link := range pub.Manifest.Links {
+			if strings.HasPrefix(link.Href.String(), "~readium/") {
+				// Skip links to services
+				continue
+			}
+			newLinks = append(newLinks, link)
+		}
+		pub.Manifest.Links = newLinks
+
 		var jsonBytes []byte
 		if indentFlag == "" {
 			jsonBytes, err = json.Marshal(pub.Manifest)
