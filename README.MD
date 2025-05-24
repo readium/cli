@@ -67,7 +67,7 @@ It takes one of the following arguments:
 | --- | ----- | ----- |
 | `accessMode` | `auditory` | If the publication contains a reference to an audio or video resource (inspect `resources` and `readingOrder` in RWPM). |
 | `accessMode` | `visual` | If the publications contains a reference to an image or a video resource (inspect `resources` and `readingOrder` in RWPM). |
-| `accessModeSufficient` | `textual` | If the publication is partially or fully accessible (WCAG A or above).<br>Or if the publication does not contain any image, audio or video resource (inspect "resources" and "readingOrder" in RWPM)<br>Or if the only image available can be identified as a cover. |
+| `accessModeSufficient` | `textual` | If the publication is partially or fully accessible (WCAG A or above).<br>Or if the publication does not contain any image, audio or video resource (inspect "resources" and "readingOrder" in RWPM)<br>Or if the only image available can be identified as a cover. `--infer-a11y-ignore-image-` flags extend this inference by counting ignored images as non available.|
 | `feature` | `displayTransformability` | :warning: This rule is only used with reflowable EPUB files that conform to WCAG AA or above. |
 | `feature` | `pageNavigation` | If the publications contains a page list (check for the presence of a `pageList` collection in RWPM). |
 | `feature` | `tableOfContents` | If the publications contains a table of contents (check for the presence of a `toc` collection in RWPM). |
@@ -92,6 +92,8 @@ When using this flag, each image returned in the manifest will contain the follo
 
 
 ### Ignoring images
+
+Ignoring a list of images known to be decorative or with a correct `alt` attribut, allows to to extend the `accessModeSufficient` inference. 
 
 The `manifest` command provides two different flags for ignoring images, either by:
 
