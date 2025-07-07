@@ -151,9 +151,7 @@ readium manifest --infer-a11y=split moby-dick.epub | jq .metadata
   "identifier": "code.google.com.epub-samples.moby-dick-basic",
   "language": "en-US",
   "modified": "2012-01-18T12:47:00Z",
-  "presentation": {
-    "layout": "reflowable"
-  },
+  "layout": "reflowable",
   "publisher": "Harper & Brothers, Publishers",
   "title": "Moby-Dick"
 }
@@ -868,9 +866,7 @@ readium manifest --infer-a11y=split accessible_epub_3.epub | jq .metadata
   "identifier": "urn:isbn:9781449328030",
   "language": "en",
   "modified": "2012-10-24T15:30:00Z",
-  "presentation": {
-    "layout": "reflowable"
-  },
+  "layout": "reflowable",
   "published": "2012-02-20T00:00:00Z",
   "publisher": "O’Reilly Media, Inc.",
   "title": "Accessible EPUB 3"
