@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:1-bookworm@sha256:79390b5e5af9ee6e7b1173ee3eac7fadf6751a545297672916b59bfa0ecf6f71 AS builder
+FROM --platform=$BUILDPLATFORM golang:1-bookworm@sha256:29d97266c1d341b7424e2f5085440b74654ae0b61ecdba206bc12d6264844e21 AS builder
 ARG BUILDARCH TARGETOS TARGETARCH
 ARG NO_SNAPSHOT=false
 
@@ -46,8 +46,7 @@ LABEL org.opencontainers.image.source="https://github.com/readium/cli"
 ADD https://pagure.io/mailcap/raw/master/f/mime.types /etc/
 
 # Add demo EPUBs to the container by default
-# This will go away soon!
-ADD --chown=nonroot:nonroot https://readium-playground-files.storage.googleapis.com/demo/moby-dick.epub /srv/publications/
+# ADD --chown=nonroot:nonroot https://readium-playground-files.storage.googleapis.com/demo/moby-dick.epub /srv/publications/
 
 # Copy built Go binary
 COPY --from=builder "/app/readium" /opt/
@@ -57,4 +56,4 @@ EXPOSE 15080
 USER nonroot:nonroot
 
 ENTRYPOINT ["/opt/readium"]
-CMD ["serve", "/srv/publications", "--address", "0.0.0.0"]
+CMD ["serve", "-s", "http,https", "--address", "0.0.0.0"]
