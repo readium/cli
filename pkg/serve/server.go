@@ -10,18 +10,38 @@ import (
 	"github.com/readium/cli/pkg/serve/cache"
 	"github.com/readium/go-toolkit/pkg/archive"
 	"github.com/readium/go-toolkit/pkg/streamer"
+	"github.com/readium/go-toolkit/pkg/util/url"
 )
 
 type Remote struct {
-	S3     *s3.Client      // AWS S3-compatible storage
-	GCS    *storage.Client // Google Cloud Storage
-	HTTP   *http.Client    // HTTP-requested storage
-	Config archive.RemoteArchiveConfig
+	LocalDirectory string          // Local directory base path
+	S3             *s3.Client      // AWS S3-compatible storage
+	GCS            *storage.Client // Google Cloud Storage
+	HTTP           *http.Client    // HTTP-requested storage
+	HTTPEnabled    bool            // Whether HTTP is enabled
+	HTTPSEnabled   bool            // Whether HTTPS is enabled
+	Config         archive.RemoteArchiveConfig
+}
+
+func (r Remote) AcceptsScheme(scheme url.Scheme) bool {
+	switch scheme {
+	case url.SchemeFile:
+		return r.LocalDirectory != ""
+	case url.SchemeS3:
+		return r.S3 != nil
+	case url.SchemeGS:
+		return r.GCS != nil
+	case url.SchemeHTTP:
+		return r.HTTPEnabled && r.HTTP != nil
+	case url.SchemeHTTPS:
+		return r.HTTPSEnabled && r.HTTP != nil
+	default:
+		return false
+	}
 }
 
 type ServerConfig struct {
 	Debug             bool
-	BaseDirectory     string
 	JSONIndent        string
 	InferA11yMetadata streamer.InferA11yMetadata
 }

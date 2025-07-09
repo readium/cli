@@ -34,8 +34,15 @@ type demoListItem struct {
 	Path     string `json:"path"`
 }
 
+// TODO: replace with OPDS or something better
 func (s *Server) demoList(w http.ResponseWriter, req *http.Request) {
-	fi, err := os.ReadDir(s.config.BaseDirectory)
+	if s.remote.LocalDirectory == "" {
+		slog.Warn("demo publication list requested, but no local directory configured")
+		w.WriteHeader(404)
+		return
+	}
+
+	fi, err := os.ReadDir(s.remote.LocalDirectory)
 	if err != nil {
 		slog.Error("failed reading publications directory", "error", err)
 		w.WriteHeader(500)
@@ -72,8 +79,11 @@ func (s *Server) getPublication(ctx context.Context, filename string) (*pub.Publ
 			InferA11yMetadata: s.config.InferA11yMetadata,
 			HttpClient:        s.remote.HTTP,
 		}
+		if !s.remote.AcceptsScheme(u.Scheme()) {
+			return nil, remote, errors.New("unacceptable scheme " + u.Scheme().String())
+		}
 		if u.IsFile() {
-			path, err := url.FromFilepath(filepath.Join(s.config.BaseDirectory, path.Clean(u.Path())))
+			path, err := url.FromFilepath(filepath.Join(s.remote.LocalDirectory, path.Clean(u.Path())))
 			if err != nil {
 				return nil, remote, errors.Wrap(err, "failed creating URL from filepath")
 			}
