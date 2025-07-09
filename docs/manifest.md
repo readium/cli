@@ -66,7 +66,7 @@ When using this flag, each image returned in the manifest will contain the follo
 
 ## Ignoring images
 
-Ignoring a list of images known to be decorative or with a correct `alt` attribut, allows to to extend the `accessModeSufficient` inference.
+Ignoring a list of images known to be decorative or with a correct `alt` attribute, allows to extend the `accessModeSufficient` inference.
 
 The `manifest` command provides two different flags for ignoring images, either by:
 
