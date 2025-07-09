@@ -49,6 +49,10 @@ var compressableMimes = []string{
 	"application/font-woff",
 	"font/x-woff",
 	"application/vnd.ms-fontobject",
+	mediatype.OPF.String(),
+	mediatype.NCX.String(),
+	mediatype.XML.String(),
+	mediatype.JSON.String(),
 }
 
 func conformsToAsMimetype(conformsTo manifest.Profiles) mediatype.MediaType {

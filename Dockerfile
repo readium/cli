@@ -46,8 +46,7 @@ LABEL org.opencontainers.image.source="https://github.com/readium/cli"
 ADD https://pagure.io/mailcap/raw/master/f/mime.types /etc/
 
 # Add demo EPUBs to the container by default
-# This will go away soon!
-ADD --chown=nonroot:nonroot https://readium-playground-files.storage.googleapis.com/demo/moby-dick.epub /srv/publications/
+# ADD --chown=nonroot:nonroot https://readium-playground-files.storage.googleapis.com/demo/moby-dick.epub /srv/publications/
 
 # Copy built Go binary
 COPY --from=builder "/app/readium" /opt/
@@ -57,4 +56,4 @@ EXPOSE 15080
 USER nonroot:nonroot
 
 ENTRYPOINT ["/opt/readium"]
-CMD ["serve", "/srv/publications", "--address", "0.0.0.0"]
+CMD ["serve", "-s", "http,https", "--address", "0.0.0.0"]
