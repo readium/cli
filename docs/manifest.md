@@ -121,7 +121,7 @@ Outputs are based on publications available from the [EPUB 3 Samples project](ht
 
 ### Moby Dick
 
-#### Inferring metadata
+#### Extracting and inferring metadata
 
 ```sh
 readium manifest --infer-a11y=split moby-dick.epub | jq .metadata
