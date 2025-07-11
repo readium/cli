@@ -50,11 +50,11 @@ Many services provide an S3 compatible API. The `serve` command is fully compati
 | ---- | ----------- |
 | `--s3-region` | Region for the S3 service. Defaults to `auto`. |
 
-## Using Google Cloud Storage
+## Using GCS
 
-In addition to S3, the `serve` command also supports Google Cloud Storage (Google Cloud Storage).
+In addition to S3, the `serve` command also supports GCS (Google Cloud Storage).
 
-Unlike S3, support for GCS relies on configuration handled through the [Google Cloud CLI](https://cloud.google.com/cli) rather than flags when calling the Readium CLI.
+Unlike S3, support for GCS relies on configuration handled through [Application Default Credentials](https://cloud.google.com/docs/authentication/application-default-credentials) rather than flags when calling the Readium CLI. If running this project in e.g. [Google Cloud Run](https://cloud.google.com/run), the credentials will be automatically loaded.
 
 ### Example
 
@@ -85,10 +85,10 @@ As illustrated in the previous sections of this document, configuration for the 
 | Scheme | Value |
 | ------ | ----- |
 | Filesystem | `file` |
-| Google Cloud Storage | `gs` |
 | HTTP | `http` |
 | HTTPS | `https` |
 | S3 | `s3` |
+| Google Cloud Storage | `gs` |
 
 ### Example
 
@@ -112,19 +112,19 @@ These settings can be overriden using dedicated flags:
 
 ## Fetching a manifest for a publication
 
-In its current version, the `serve` command relies on a single path from which all manifests can be fetched: `/{base64-encoded-path-to-file}/manifest.json`.
+In its current version, the `serve` command relies on a single path from which all manifests can be fetched: `/{base64url-encoded-path-to-file}/manifest.json`.
 
 Each scheme supports a dedicated URI scheme:
 
 | Scheme | URI scheme | Path |
 | ------ | ---------- | ---- |
 | Filesystem | `file://` | Path to a given file relative to the path provided in `--file-directory`.
-| Google Cloud Storage | `gs://` | Path to a bucket, followed by a path to a file in that bucket: `gs://{bucket}/{path-to-file}` |
 | HTTP | `http://` | URL |
 | HTTPS | `https://` | URL |
-| S3 | `s3://` | Path to a bucket, followed by a path to a file in that bucket: `s3://{bucket}/{path-to-file}` |
+| S3 | `s3://` | Path to a bucket, followed by a path to a file (key) in that bucket: `s3://{bucket}/{path-to-file}` |
+| Google Cloud Storage | `gs://` | Path to a bucket, followed by a path to a file (key) in that bucket: `gs://{bucket}/{path-to-file}` |
 
-Once calculated, the URI scheme and path to the file have to be Base64 encoded in order to generate a path to a manifest.
+Once calculated, the URI scheme and path to the file have to be [base64url](https://datatracker.ietf.org/doc/html/rfc4648#section-5) encoded in order to generate a path to a manifest.
 
 ### Example
 
@@ -133,7 +133,7 @@ Once calculated, the URI scheme and path to the file have to be Base64 encoded i
 ```
 
 * I'd like to stream <https://github.com/IDPF/epub3-samples/releases/download/20230704/accessible_epub_3.epub>
-* Which can be Base 64 encoded to `aHR0cHM6Ly9naXRodWIuY29tL0lEUEYvZXB1YjMtc2FtcGxlcy9yZWxlYXNlcy9kb3dubG9hZC8yMDIzMDcwNC9hY2Nlc3NpYmxlX2VwdWJfMy5lcHVi`
+* Which can be base64url encoded to `aHR0cHM6Ly9naXRodWIuY29tL0lEUEYvZXB1YjMtc2FtcGxlcy9yZWxlYXNlcy9kb3dubG9hZC8yMDIzMDcwNC9hY2Nlc3NpYmxlX2VwdWJfMy5lcHVi`
 * The manifest for that file can be accessed at <http://localhost:15080/aHR0cHM6Ly9naXRodWIuY29tL0lEUEYvZXB1YjMtc2FtcGxlcy9yZWxlYXNlcy9kb3dubG9hZC8yMDIzMDcwNC9hY2Nlc3NpYmxlX2VwdWJfMy5lcHVi/manifest.json>
 
 ## Additional services
