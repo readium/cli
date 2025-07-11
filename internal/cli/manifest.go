@@ -15,6 +15,7 @@ import (
 	"github.com/readium/go-toolkit/pkg/fetcher"
 	"github.com/readium/go-toolkit/pkg/manifest"
 	"github.com/readium/go-toolkit/pkg/mediatype"
+	"github.com/readium/go-toolkit/pkg/pub"
 	"github.com/readium/go-toolkit/pkg/streamer"
 	"github.com/readium/go-toolkit/pkg/util/url"
 	"github.com/spf13/cobra"
@@ -166,6 +167,13 @@ Examples:
 			InferA11yMetadata:  streamer.InferA11yMetadata(inferA11yFlag),
 			InferPageCount:     inferPageCountFlag,
 			InferIgnoredImages: ignoreImagesHashes,
+			OnCreatePublication: func(builder *pub.Builder) error {
+				// TODO: use improved services functions when implemented
+				builder.ServicesBuilder.Remove(pub.PositionsService_Name, nil)
+				builder.ServicesBuilder.Remove(pub.ContentService_Name, nil)
+				builder.ServicesBuilder.Remove(pub.GuidedNavigationService_Name, nil)
+				return nil
+			},
 		}).Open(
 			context.TODO(),
 			asset.File(path), "",

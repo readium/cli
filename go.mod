@@ -12,7 +12,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/gotd/contrib v0.21.0
 	github.com/pkg/errors v0.9.1
-	github.com/readium/go-toolkit v0.10.1
+	github.com/readium/go-toolkit v0.10.2
 	github.com/spf13/cobra v1.9.1
 	github.com/vmihailenco/go-tinylfu v0.2.2
 	github.com/zeebo/xxh3 v1.0.2
@@ -74,7 +74,7 @@ require (
 	github.com/kettek/apng v0.0.0-20220823221153-ff692776a607 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
-	github.com/pdfcpu/pdfcpu v0.10.2 // indirect
+	github.com/pdfcpu/pdfcpu v0.11.0 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/readium/xmlquery v0.0.0-20230106230237-8f493145aef4 // indirect
 	github.com/relvacode/iso8601 v1.6.0 // indirect
@@ -94,7 +94,7 @@ require (
 	go4.org v0.0.0-20230225012048-214862532bf5 // indirect
 	golang.org/x/crypto v0.39.0 // indirect
 	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
-	golang.org/x/image v0.26.0 // indirect
+	golang.org/x/image v0.27.0 // indirect
 	golang.org/x/net v0.41.0 // indirect
 	golang.org/x/oauth2 v0.30.0 // indirect
 	golang.org/x/sync v0.15.0 // indirect
