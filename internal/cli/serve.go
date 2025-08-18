@@ -13,6 +13,8 @@ import (
 
 	"log/slog"
 
+	nurl "net/url"
+
 	"cloud.google.com/go/storage"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -44,6 +46,8 @@ var s3AccessKeyFlag string
 var s3SecretKeyFlag string
 var s3UsePathStyleFlag bool
 
+var httpHostWhitelistFlag []string
+var httpUnsafeRequestsFlag bool
 var httpAuthorizationFlag string
 
 var remoteArchiveTimeoutFlag uint32
@@ -182,7 +186,21 @@ implement any authentication, and may have more access to files than expected.`,
 		}
 
 		// HTTP/HTTPS
-		remote.HTTP, err = client.NewHTTPClient(httpAuthorizationFlag)
+		urlWhitelist := make([]*nurl.URL, len(httpHostWhitelistFlag))
+		for i, rawURL := range httpHostWhitelistFlag {
+			parsedURL, err := nurl.Parse(rawURL)
+			if err != nil {
+				return fmt.Errorf("invalid URL in whitelist: %s: %w", rawURL, err)
+			}
+			if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+				return fmt.Errorf("whitelisted URL %s must have http or https scheme", rawURL)
+			}
+			if parsedURL.Host == "" {
+				return fmt.Errorf("whitelisted URL %s must have a host", rawURL)
+			}
+			urlWhitelist[i] = parsedURL
+		}
+		remote.HTTP, err = client.NewHTTPClient(httpAuthorizationFlag, urlWhitelist, httpUnsafeRequestsFlag)
 		if err != nil {
 			slog.Warn("HTTP client creation failed, HTTP support will be disabled", "error", err)
 		}
@@ -239,6 +257,8 @@ func init() {
 	serveCmd.Flags().StringVar(&s3SecretKeyFlag, "s3-secret-key", "", "S3 secret key")
 	serveCmd.Flags().BoolVar(&s3UsePathStyleFlag, "s3-use-path-style", false, "Use S3 path style buckets (default is to use virtual hosts)")
 
+	serveCmd.Flags().StringSliceVar(&httpHostWhitelistFlag, "http-host-whitelist", []string{}, "Whitelist of HTTP hosts/paths to allow for remote HTTP requests (e.g. 'http://1.1.1.1', 'https://na1.storage.example.com/the/path'). If omitted, anything that resolves to a public IP is allowed.")
+	serveCmd.Flags().BoolVar(&httpUnsafeRequestsFlag, "http-unsafe-requests", false, "Allow potentially unsafe HTTP requests to private IP addresses (e.g. localhost). Enable only if you completely control the requests made to the server, otherwise this can be dangerous")
 	serveCmd.Flags().StringVar(&httpAuthorizationFlag, "http-authorization", "", "HTTP authorization header value (e.g. 'Bearer <token>' or 'Basic <base64-credentials>')")
 
 	serveCmd.Flags().Uint32Var(&remoteArchiveTimeoutFlag, "remote-archive-timeout", 60, "Timeout for remote archive requests (in seconds)")

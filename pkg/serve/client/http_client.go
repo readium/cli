@@ -1,9 +1,11 @@
 package client
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"runtime"
 	"syscall"
 	"time"
@@ -39,15 +41,18 @@ func safeSocketControl(network string, address string, conn syscall.RawConn) err
 
 // Some of the below conf values from https://github.com/imgproxy/imgproxy/blob/master/transport/transport.go
 
-const ClientKeepAliveTimeout = 90       // Imgproxy default
-var Workers = runtime.GOMAXPROCS(0) * 2 // Imgproxy default
+const ClientKeepAliveTimeout = 90  // Imgproxy default
+var Workers = runtime.NumCPU() * 2 // Imgproxy default
 
-func NewHTTPClient(auth string) (*http.Client, error) {
+func NewHTTPClient(auth string, whitelist []*url.URL, bypassSafeSocketControl bool) (*http.Client, error) {
 	safeDialer := &net.Dialer{
 		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
 		DualStack: true,
 		Control:   safeSocketControl,
+	}
+	if bypassSafeSocketControl {
+		safeDialer.Control = nil
 	}
 
 	safeTransport := &http.Transport{
@@ -62,6 +67,17 @@ func NewHTTPClient(auth string) (*http.Client, error) {
 	}
 
 	return &http.Client{
-		Transport: newAuthenticatedRoundTripper(auth, safeTransport),
+		Transport: newAuthenticatedRoundTripper(auth, whitelist, safeTransport),
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 10 {
+				// Default Go behavior
+				return errors.New("stopped after 10 redirects")
+			}
+
+			if !validateAgainstWhitelist(req.URL, whitelist) {
+				return fmt.Errorf("redirect to %s is not allowed by the whitelist", req.URL)
+			}
+			return nil
+		},
 	}, nil
 }
