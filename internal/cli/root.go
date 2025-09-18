@@ -9,14 +9,16 @@ import (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:     "readium",
-	Short:   "Utilities for Readium Web Publications",
-	Version: Version + " (go-toolkit " + version.Version + ")",
+	Use:   "readium",
+	Short: "Utilities for Readium Web Publications",
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
+	if rootCmd.Version == "" {
+		rootCmd.Version = Version + " (go-toolkit " + version.Version + ")"
+	}
 	err := rootCmd.Execute()
 	if err != nil {
 		// Error is already printed to stderr by Cobra.
