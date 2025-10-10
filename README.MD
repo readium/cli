@@ -24,3 +24,41 @@ As an alternative, to install `readium` in `~/go/bin`, run `make install`. Use `
 | `convert` | Convert back and forth between EPUB and Readium Web Publication. | |
 | `optimize` | Optimize images contained in an EPUB or a Readium Web Publication. | |
 | `package` | Package images or audio files into a Readium Web Publication. | <https://github.com/readium/cli/discussions/2> |
+
+## Examples
+
+```sh
+readium manifest --infer-a11y=split moby-dick.epub | jq .metadata
+```
+
+```json
+{
+  "author": {
+    "name": "Herman Melville",
+    "sortAs": "MELVILLE, HERMAN"
+  },
+  "conformsTo": "https://readium.org/webpub-manifest/profiles/epub",
+  "contributor": {
+    "name": "Dave Cramer",
+    "role": "mrk"
+  },
+  "http://creativecommons.org/ns#attributionURL": "http://code.google.com/p/epub-samples/",
+  "http://purl.org/dc/terms/rights": "This work is shared with the public using the Attribution-ShareAlike 3.0 Unported (CC BY-SA 3.0) license.",
+  "http://www.idpf.org/2007/opf#version": "3.0",
+  "https://github.com/readium/go-toolkit/releases": "v0.10.1",
+  "https://readium.org/webpub-manifest#inferredAccessibility": {
+    "accessMode": [
+      "visual"
+    ],
+    "feature": [
+      "tableOfContents"
+    ]
+  },
+  "identifier": "code.google.com.epub-samples.moby-dick-basic",
+  "language": "en-US",
+  "modified": "2012-01-18T12:47:00Z",
+  "layout": "reflowable",
+  "publisher": "Harper & Brothers, Publishers",
+  "title": "Moby-Dick"
+}
+```
