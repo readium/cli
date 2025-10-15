@@ -78,6 +78,7 @@ func (s *Server) getPublication(ctx context.Context, filename string) (*pub.Publ
 		config := streamer.Config{
 			InferA11yMetadata: s.config.InferA11yMetadata,
 			HttpClient:        s.remote.HTTP,
+			AddServiceLinks:   true,
 		}
 		if !s.remote.AcceptsScheme(u.Scheme()) {
 			return nil, remote, time.Time{}, errors.New("unacceptable scheme " + u.Scheme().String())

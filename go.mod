@@ -12,7 +12,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/gotd/contrib v0.21.1
 	github.com/pkg/errors v0.9.1
-	github.com/readium/go-toolkit v0.11.0
+	github.com/readium/go-toolkit v0.12.1
 	github.com/spf13/cobra v1.10.1
 	github.com/vmihailenco/go-tinylfu v0.2.2
 	github.com/zeebo/xxh3 v1.0.2
@@ -77,7 +77,7 @@ require (
 	github.com/pdfcpu/pdfcpu v0.11.0 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/readium/xmlquery v0.0.0-20230106230237-8f493145aef4 // indirect
-	github.com/relvacode/iso8601 v1.6.0 // indirect
+	github.com/relvacode/iso8601 v1.7.0 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.5.0 // indirect
 	github.com/trimmer-io/go-xmp v1.0.0 // indirect
@@ -94,12 +94,12 @@ require (
 	go4.org v0.0.0-20230225012048-214862532bf5 // indirect
 	golang.org/x/crypto v0.42.0 // indirect
 	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
-	golang.org/x/image v0.27.0 // indirect
+	golang.org/x/image v0.32.0 // indirect
 	golang.org/x/net v0.44.0 // indirect
 	golang.org/x/oauth2 v0.31.0 // indirect
 	golang.org/x/sync v0.17.0 // indirect
 	golang.org/x/sys v0.36.0 // indirect
-	golang.org/x/text v0.29.0 // indirect
+	golang.org/x/text v0.30.0 // indirect
 	golang.org/x/time v0.13.0 // indirect
 	google.golang.org/genproto v0.0.0-20250603155806-513f23925822 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250818200422-3122310a409c // indirect

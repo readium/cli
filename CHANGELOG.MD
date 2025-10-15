@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 **Warning:** Features marked as *alpha* may change or be removed in a future release without notice. Use with caution.
 
+## [0.5.1] - 2025-10-14
+
+### Fixed
+
+- When a manifest has no links (such as when using the `manifest` command), the `links` property is now omitted instead of set to `null` in the JSON output
+- The `--infer-page-count` works again, and general issues with services in the `manifest` command have been fixed due to a revamp in how they work in the toolkit
+
+### Changed
+
+- Go and third-party dependencies updated
+
 ## [0.5.0] - 2025-09-19
 
 ### Added
