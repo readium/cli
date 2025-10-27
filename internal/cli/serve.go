@@ -65,10 +65,10 @@ var remoteArchiveCacheAll uint32
 
 var serveCmd = &cobra.Command{
 	Use:   "serve",
-	Short: "Start a local HTTP server, serving a specified directory of publications",
-	Long: `Start a local HTTP server, serving a specified directory of publications.
+	Short: "Start a local HTTP server, serving publications locally or remotely",
+	Long: `Start a local HTTP server, serving publications locally or remotely.
 
-This command will start an HTTP serve listening by default on 'localhost:15080',
+This command will start an HTTP server listening by default on 'localhost:15080',
 serving all compatible files (EPUB, PDF, CBZ, etc.) available from the enabled
 access schemes (file, http, https, s3, gs, or a local path if file scheme is enabled)
 as Readium Web Publications. To get started, the manifest can be accessed from
@@ -76,13 +76,9 @@ as Readium Web Publications. To get started, the manifest can be accessed from
 This file serves as the entry point and contains metadata and links to the rest
 of the files that can be accessed for the publication.
 
-If local file access is enabled, the server also exposes a '/list.json' endpoint that, 
-for debugging purposes, returns a list of all the publications found in the directory
-along with their encoded paths. This will be replaced by an OPDS 2 feed (or similar)
-in a future release.
-
-Note: Take caution before exposing this server on the internet. It does not
-implement any authentication, and may have more access to files than expected.`,
+Authentication can be enabled using the -m flag, which replaces the  encoded path
+with a JWT. Before exposing this server publicly, consider using this flag to secure
+access to publications and prevent abuse or unauthorized access.`,
 	Args: func(cmd *cobra.Command, args []string) error {
 		if len(args) > 0 {
 			// For users migrating from previous versions of the CLI
