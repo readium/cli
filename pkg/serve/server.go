@@ -7,6 +7,7 @@ import (
 	"cloud.google.com/go/storage"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/gorilla/mux"
+	"github.com/readium/cli/pkg/serve/auth"
 	"github.com/readium/cli/pkg/serve/cache"
 	"github.com/readium/go-toolkit/pkg/archive"
 	"github.com/readium/go-toolkit/pkg/streamer"
@@ -44,6 +45,7 @@ type ServerConfig struct {
 	Debug             bool
 	JSONIndent        string
 	InferA11yMetadata streamer.InferA11yMetadata
+	Auth              auth.AuthProvider
 }
 
 type Server struct {
@@ -57,6 +59,9 @@ const MaxCachedPublicationAmount = 10
 const MaxCachedPublicationTTL = time.Second * time.Duration(600)
 
 func NewServer(config ServerConfig, remote Remote) *Server {
+	if config.Auth == nil {
+		config.Auth = auth.NewEncodedAuthProvider()
+	}
 	return &Server{
 		config: config,
 		remote: remote,

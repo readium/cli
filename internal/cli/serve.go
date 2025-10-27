@@ -2,6 +2,8 @@ package cli
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
@@ -22,6 +24,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/pkg/errors"
 	"github.com/readium/cli/pkg/serve"
+	"github.com/readium/cli/pkg/serve/auth"
 	"github.com/readium/cli/pkg/serve/client"
 	"github.com/readium/go-toolkit/pkg/streamer"
 	"github.com/readium/go-toolkit/pkg/util/url"
@@ -38,6 +41,11 @@ var bindPortFlag uint16
 var schemeFlag []string
 
 var fileDirectoryFlag string
+
+var mode string
+
+var jwtSharedSecret string
+var jwksURL string
 
 // Cloud-related flags
 var s3EndpointFlag string
@@ -213,11 +221,52 @@ implement any authentication, and may have more access to files than expected.`,
 		remote.Config.Timeout = time.Duration(remoteArchiveTimeoutFlag) * time.Second
 		remote.Config.CacheAllThreshold = int64(remoteArchiveCacheAll)
 
+		var authProvider auth.AuthProvider
+		switch mode {
+		case "open":
+			authProvider = auth.NewEncodedAuthProvider()
+			slog.Info("Operating in open access mode (insecure)")
+		case "jwt":
+			var sharedSecret []byte
+			if jwtSharedSecret == "" {
+				// Auto-generate shared secret
+				var rawSecret [32]byte
+				_, err := rand.Reader.Read(rawSecret[:])
+				if err != nil {
+					return fmt.Errorf("failed to generate random shared secret: %w", err)
+				}
+				sharedSecret = rawSecret[:]
+				slog.Info("Operating in HS256 JWT access mode", "secret", hex.EncodeToString(sharedSecret))
+			} else {
+				sharedSecret, err = hex.DecodeString(jwtSharedSecret)
+				if err != nil {
+					return fmt.Errorf("failed to decode hex-encoded JWT shared secret: %w", err)
+				}
+				slog.Info("Operating in HS256 JWT access mode", "secret", "<jwt-shared-secret flag>")
+			}
+			authProvider, err = auth.NewJWTAuthProvider(sharedSecret)
+			if err != nil {
+				return fmt.Errorf("failed creating JWT auth provider: %w", err)
+			}
+		case "jwks":
+			if jwksURL == "" {
+				return fmt.Errorf("jwks-url must be specified in jwks mode")
+			}
+			slog.Info("Operating in JWKS JWT access mode", "jwks_url", jwksURL)
+			authProvider, err = auth.NewJWKSAuthProvider(context.Background(), remote.HTTP, jwksURL)
+			if err != nil {
+				return fmt.Errorf("failed creating JWKS auth provider: %w", err)
+			}
+		default:
+			return fmt.Errorf("invalid access mode %q, acceptable values: open, jwt, jwks", mode)
+		}
+
 		// Create server
 		pubServer := serve.NewServer(serve.ServerConfig{
 			Debug:             debugFlag,
 			JSONIndent:        indentFlag,
 			InferA11yMetadata: streamer.InferA11yMetadata(inferA11yFlag),
+			Auth:              authProvider,
 		}, remote)
 
 		bind := fmt.Sprintf("%s:%d", bindAddressFlag, bindPortFlag)
@@ -248,6 +297,10 @@ func init() {
 	serveCmd.Flags().StringVarP(&indentFlag, "indent", "i", "", "Indentation used to pretty-print JSON files")
 	serveCmd.Flags().Var(&inferA11yFlag, "infer-a11y", "Infer accessibility metadata: no, merged, split")
 	serveCmd.Flags().BoolVarP(&debugFlag, "debug", "d", false, "Enable debug mode")
+	serveCmd.Flags().StringVarP(&mode, "mode", "m", "open", "Access mode: open (simple base64 URLs), jwt (JWT auth with a shared secret), jwks (JWT auth with keys in a JWKS)")
+
+	serveCmd.Flags().StringVar(&jwtSharedSecret, "jwt-shared-secret", "", "Hex-encoded shared secret used for HS256 JWT signature validation. If omitted, but JWT auth is enabled, the secret is auto-generated and logged (debug) at runtime")
+	serveCmd.Flags().StringVar(&jwksURL, "jwks-url", "", "URL to a JWKS (JSON Web Key Set) used for JWT signature validation when in 'jwks' mode")
 
 	serveCmd.Flags().StringVar(&fileDirectoryFlag, "file-directory", "", "Local directory path to serve publications from")
 
