@@ -3,11 +3,9 @@ package serve
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"os"
 	"path"
 	"path/filepath"
 	"slices"
@@ -28,37 +26,6 @@ import (
 	"github.com/readium/go-toolkit/pkg/util/url"
 	"github.com/zeebo/xxh3"
 )
-
-type demoListItem struct {
-	Filename string `json:"filename"`
-	Path     string `json:"path"`
-}
-
-// TODO: replace with OPDS or something better
-func (s *Server) demoList(w http.ResponseWriter, req *http.Request) {
-	if s.remote.LocalDirectory == "" {
-		slog.Warn("demo publication list requested, but no local directory configured")
-		w.WriteHeader(404)
-		return
-	}
-
-	fi, err := os.ReadDir(s.remote.LocalDirectory)
-	if err != nil {
-		slog.Error("failed reading publications directory", "error", err)
-		w.WriteHeader(500)
-		return
-	}
-	files := make([]demoListItem, len(fi))
-	for i, f := range fi {
-		files[i] = demoListItem{
-			Filename: f.Name(),
-			Path:     base64.RawURLEncoding.EncodeToString([]byte(f.Name())),
-		}
-	}
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", s.config.JSONIndent)
-	enc.Encode(files)
-}
 
 func (s *Server) getPublication(ctx context.Context, filename string) (*pub.Publication, bool, time.Time, error) {
 	loc, err := url.URLFromString(filename)

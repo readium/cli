@@ -36,8 +36,6 @@ func (s *Server) Routes() *mux.Router {
 		r.Handle("/debug/pprof/threadcreate", pprof.Handler("threadcreate"))
 	}
 
-	r.HandleFunc("/list.json", s.demoList).Name("demo_list")
-
 	pub := r.PathPrefix("/{path}").Subrouter()
 	pub.Use(func(next http.Handler) http.Handler {
 		adapter, _ := httpcompression.DefaultAdapter(httpcompression.ContentTypes(compressableMimes, false))
