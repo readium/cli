@@ -24,7 +24,7 @@ builds:
     goarm:
       - '7'
     goamd64:
-      - v3
+      - v2
     ldflags:
       - -s -w
 
