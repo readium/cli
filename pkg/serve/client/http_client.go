@@ -1,6 +1,7 @@
 package client
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -56,13 +57,16 @@ func NewHTTPClient(auth string, whitelist []*url.URL, bypassSafeSocketControl bo
 	}
 
 	safeTransport := &http.Transport{
-		Proxy:                 http.ProxyFromEnvironment,
-		DialContext:           safeDialer.DialContext,
-		ForceAttemptHTTP2:     true,
-		MaxIdleConns:          100,
-		MaxIdleConnsPerHost:   Workers + 1,
-		IdleConnTimeout:       time.Duration(ClientKeepAliveTimeout) * time.Second,
-		TLSHandshakeTimeout:   10 * time.Second,
+		Proxy:               http.ProxyFromEnvironment,
+		DialContext:         safeDialer.DialContext,
+		ForceAttemptHTTP2:   true,
+		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: Workers + 1,
+		IdleConnTimeout:     time.Duration(ClientKeepAliveTimeout) * time.Second,
+		TLSHandshakeTimeout: 10 * time.Second,
+		TLSClientConfig: &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		},
 		ExpectContinueTimeout: 1 * time.Second,
 	}
 
