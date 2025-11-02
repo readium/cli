@@ -268,7 +268,7 @@ access to publications and prevent abuse or unauthorized access.`,
 		bind := fmt.Sprintf("%s:%d", bindAddressFlag, bindPortFlag)
 		httpServer := &http.Server{
 			ReadTimeout:    10 * time.Second,
-			WriteTimeout:   10 * time.Second,
+			WriteTimeout:   600 * time.Second, // 5 minutes for server to respond with resource
 			MaxHeaderBytes: 1 << 20,
 			Addr:           bind,
 			Handler:        pubServer.Routes(),
