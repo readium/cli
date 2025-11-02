@@ -36,7 +36,7 @@ func (s *Server) Routes() *mux.Router {
 		r.Handle("/debug/pprof/threadcreate", pprof.Handler("threadcreate"))
 	}
 
-	pub := r.PathPrefix("/{path}").Subrouter()
+	pub := r.PathPrefix("/webpub/{path}").Subrouter()
 	pub.Use(func(next http.Handler) http.Handler {
 		adapter, _ := httpcompression.DefaultAdapter(httpcompression.ContentTypes(compressableMimes, false))
 		return adapter(next)
@@ -52,6 +52,10 @@ func (s *Server) Routes() *mux.Router {
 			}
 			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ContextPathKey, newPath)))
 		})
+	})
+	pub.HandleFunc("", func(w http.ResponseWriter, req *http.Request) {
+		ru, _ := r.Get("manifest").URLPath("path", mux.Vars(req)["path"])
+		http.Redirect(w, req, ru.String(), http.StatusFound)
 	})
 	pub.HandleFunc("/manifest.json", s.getManifest).Name("manifest")
 	pub.HandleFunc("/{asset:.*}", s.getAsset).Name("asset")
