@@ -1,4 +1,4 @@
-package cli
+package version
 
 import (
 	"runtime/debug"

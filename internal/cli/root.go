@@ -3,7 +3,8 @@ package cli
 import (
 	"os"
 
-	"github.com/readium/go-toolkit/pkg/util/version"
+	"github.com/readium/cli/internal/version"
+	gv "github.com/readium/go-toolkit/pkg/util/version"
 	"github.com/spf13/cobra"
 )
 
@@ -17,7 +18,7 @@ var rootCmd = &cobra.Command{
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	if rootCmd.Version == "" {
-		rootCmd.Version = Version + " (go-toolkit " + version.Version + ")"
+		rootCmd.Version = version.Version + " (go-toolkit " + gv.Version + ")"
 	}
 	err := rootCmd.Execute()
 	if err != nil {
