@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 **Warning:** Features marked as *alpha* may change or be removed in a future release without notice. Use with caution.
 
-## [0.6.0] - 2025-10-27
+## [0.6.0] - 2025-11-03
 
 ### Added
 
