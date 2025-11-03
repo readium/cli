@@ -254,7 +254,7 @@ access to publications and prevent abuse or unauthorized access.`,
 				return fmt.Errorf("failed creating JWKS auth provider: %w", err)
 			}
 		default:
-			return fmt.Errorf("invalid access mode %q, acceptable values: open, jwt, jwks", mode)
+			return fmt.Errorf("invalid access mode %q, acceptable values: base64, jwt, jwks", mode)
 		}
 
 		// Create server
