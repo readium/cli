@@ -60,7 +60,7 @@ const MaxCachedPublicationTTL = time.Second * time.Duration(600)
 
 func NewServer(config ServerConfig, remote Remote) *Server {
 	if config.Auth == nil {
-		config.Auth = auth.NewEncodedAuthProvider()
+		config.Auth = auth.NewB64EncodedAuthProvider()
 	}
 	return &Server{
 		config: config,

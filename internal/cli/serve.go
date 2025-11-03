@@ -219,9 +219,9 @@ access to publications and prevent abuse or unauthorized access.`,
 
 		var authProvider auth.AuthProvider
 		switch mode {
-		case "open":
-			authProvider = auth.NewEncodedAuthProvider()
-			slog.Info("Operating in open access mode (insecure)")
+		case "base64":
+			authProvider = auth.NewB64EncodedAuthProvider()
+			slog.Info("Operating in open access mode with base64url encoding (insecure)")
 		case "jwt":
 			var sharedSecret []byte
 			if jwtSharedSecret == "" {
@@ -293,7 +293,7 @@ func init() {
 	serveCmd.Flags().StringVarP(&indentFlag, "indent", "i", "", "Indentation used to pretty-print JSON files")
 	serveCmd.Flags().Var(&inferA11yFlag, "infer-a11y", "Infer accessibility metadata: no, merged, split")
 	serveCmd.Flags().BoolVarP(&debugFlag, "debug", "d", false, "Enable debug mode")
-	serveCmd.Flags().StringVarP(&mode, "mode", "m", "open", "Access mode: open (simple base64 URLs), jwt (JWT auth with a shared secret), jwks (JWT auth with keys in a JWKS)")
+	serveCmd.Flags().StringVarP(&mode, "mode", "m", "base64", "Access mode: base64 (default, base64url-encoded paths), jwt (JWT auth with a shared secret), jwks (JWT auth with keys in a JWKS)")
 
 	serveCmd.Flags().StringVar(&jwtSharedSecret, "jwt-shared-secret", "", "Hex-encoded shared secret used for HS256 JWT signature validation. If omitted, but JWT auth is enabled, the secret is auto-generated and logged (debug) at runtime")
 	serveCmd.Flags().StringVar(&jwksURL, "jwks-url", "", "URL to a JWKS (JSON Web Key Set) used for JWT signature validation when in 'jwks' mode")

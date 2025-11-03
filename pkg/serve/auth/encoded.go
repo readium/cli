@@ -5,9 +5,9 @@ import (
 	"fmt"
 )
 
-type EncodedAuthProvider struct{}
+type B64EncodedAuthProvider struct{}
 
-func (n *EncodedAuthProvider) Validate(token string) (string, int, error) {
+func (n *B64EncodedAuthProvider) Validate(token string) (string, int, error) {
 	path, err := base64.RawURLEncoding.DecodeString(token)
 	if err != nil {
 		return "", 400, fmt.Errorf("invalid base64url path: %w", err)
@@ -15,6 +15,6 @@ func (n *EncodedAuthProvider) Validate(token string) (string, int, error) {
 	return string(path), 200, nil
 }
 
-func NewEncodedAuthProvider() *EncodedAuthProvider {
-	return &EncodedAuthProvider{}
+func NewB64EncodedAuthProvider() *B64EncodedAuthProvider {
+	return &B64EncodedAuthProvider{}
 }
