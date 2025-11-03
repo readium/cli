@@ -58,11 +58,12 @@ var compressableMimes = []string{
 func conformsToAsMimetype(conformsTo manifest.Profiles) mediatype.MediaType {
 	mime := mediatype.ReadiumWebpubManifest
 	for _, profile := range conformsTo {
-		if profile == manifest.ProfileDivina {
+		switch profile {
+		case manifest.ProfileDivina:
 			mime = mediatype.ReadiumDivinaManifest
-		} else if profile == manifest.ProfileAudiobook {
+		case manifest.ProfileAudiobook:
 			mime = mediatype.ReadiumAudiobookManifest
-		} else {
+		default:
 			continue
 		}
 		break
