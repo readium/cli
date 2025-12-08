@@ -15,7 +15,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/gotd/contrib v0.21.1
 	github.com/pkg/errors v0.9.1
-	github.com/readium/go-toolkit v0.13.0
+	github.com/readium/go-toolkit v0.13.1
 	github.com/spf13/cobra v1.10.1
 	github.com/vmihailenco/go-tinylfu v0.2.2
 	github.com/zeebo/xxh3 v1.0.2

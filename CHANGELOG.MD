@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 **Warning:** Features marked as *alpha* may change or be removed in a future release without notice. Use with caution.
 
+## [0.6.3] - 2025-12-08
+
+### Changed
+
+- The go-toolkit has been updated, and the version key present in WebPub manifests has changed from `https://github.com/readium/go-toolkit/releases` to `https://github.com/readium/go-toolkit#version`. This was done to reduce confusion as go-toolkit releases have been superseeded by cli releases
+
 ## [0.6.2] - 2025-12-04
 
 ### Fixed
