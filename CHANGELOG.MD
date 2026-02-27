@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 **Warning:** Features marked as *alpha* may change or be removed in a future release without notice. Use with caution.
 
+## [0.6.4] - 2026-02-26
+
+### Fixed
+
+- The go-toolkit has been updated, which fixes [not being able to retrieve resources at paths containing special characters](https://github.com/readium/cli/issues/94), such as spaces. This applies to any archived as well as exploded publications which contained such files. Retrieval of local files also had a bug
+
+### Changed
+
+- Go and third-party dependencies updated
+
 ## [0.6.3] - 2025-12-08
 
 ### Changed
