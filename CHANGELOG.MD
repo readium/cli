@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 **Warning:** Features marked as *alpha* may change or be removed in a future release without notice. Use with caution.
 
+## [0.6.5] - 2025-02-28
+
+### Fixed
+
+- Updated the go-toolkit, which fixes incorrect checking of whether a publication conforms to a specific profile based on its contents. This may have caused mistaken cases of a11y inferrence or Divina/Audiobook/EPUB/PDF profile detection in manifest outputs
+
 ## [0.6.4] - 2026-02-26
 
 ### Fixed

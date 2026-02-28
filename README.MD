@@ -45,7 +45,7 @@ readium manifest --infer-a11y=split moby-dick.epub | jq .metadata
   "http://creativecommons.org/ns#attributionURL": "http://code.google.com/p/epub-samples/",
   "http://purl.org/dc/terms/rights": "This work is shared with the public using the Attribution-ShareAlike 3.0 Unported (CC BY-SA 3.0) license.",
   "http://www.idpf.org/2007/opf#version": "3.0",
-  "https://github.com/readium/go-toolkit/releases": "v0.10.1",
+  "https://github.com/readium/go-toolkit#version": "v0.13.1",
   "https://readium.org/webpub-manifest#inferredAccessibility": {
     "accessMode": [
       "visual"
