@@ -34,10 +34,7 @@ var _ LocalCache = (*TinyLFU)(nil)
 func NewTinyLFU(size int, ttl time.Duration) *TinyLFU {
 	const maxOffset = 10 * time.Second
 
-	offset := ttl / 10
-	if offset > maxOffset {
-		offset = maxOffset
-	}
+	offset := min(ttl/10, maxOffset)
 
 	return &TinyLFU{
 		lfu:    tinylfu.New(size, 100000),

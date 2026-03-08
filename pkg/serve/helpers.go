@@ -74,7 +74,7 @@ func conformsToAsMimetype(conformsTo manifest.Profiles) mediatype.MediaType {
 func supportsEncoding(r *http.Request, encoding string) bool {
 	vv := r.Header.Values("Accept-Encoding")
 	for _, v := range vv {
-		for _, sv := range strings.Split(v, ",") {
+		for sv := range strings.SplitSeq(v, ",") {
 			coding := parseCoding(sv)
 			if coding == "" {
 				continue
