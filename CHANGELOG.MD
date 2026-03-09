@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 **Warning:** Features marked as *alpha* may change or be removed in a future release without notice. Use with caution.
 
+## [0.6.6] - 2025-03-09
+
+### Fixed
+
+- Updated the go-toolkit, which fixes a race condition (error) that could occur reading local files
+
+### Changed
+
+- Now, OPUS files has the mimetype `audio/opus` in manifests, but remain `audio/ogg; codecs=opus` in webserver responses for better compatibility
+
 ## [0.6.5] - 2025-02-28
 
 ### Fixed

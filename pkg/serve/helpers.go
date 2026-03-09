@@ -10,7 +10,8 @@ import (
 )
 
 var mimeSubstitutions = map[string]string{
-	"application/vnd.ms-opentype": "font/otf", // Not just because it's sane, but because CF will compress it!
+	"application/vnd.ms-opentype": "font/otf",               // Not just because it's sane, but because CF will compress it!
+	"audio/opus":                  "audio/ogg; codecs=opus", // For max compatibility
 }
 
 var utfCharsetNeeded = []string{
