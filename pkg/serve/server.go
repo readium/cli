@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/readium/cli/pkg/serve/auth"
 	"github.com/readium/cli/pkg/serve/cache"
+	"github.com/readium/cli/pkg/serve/content"
 	"github.com/readium/go-toolkit/pkg/archive"
 	"github.com/readium/go-toolkit/pkg/streamer"
 	"github.com/readium/go-toolkit/pkg/util/url"
@@ -46,6 +47,7 @@ type ServerConfig struct {
 	JSONIndent        string
 	InferA11yMetadata streamer.InferA11yMetadata
 	Auth              auth.AuthProvider
+	ContentFetcher    *content.Fetcher
 }
 
 type Server struct {

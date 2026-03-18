@@ -26,6 +26,7 @@ import (
 	"github.com/readium/cli/pkg/serve"
 	"github.com/readium/cli/pkg/serve/auth"
 	"github.com/readium/cli/pkg/serve/client"
+	"github.com/readium/cli/pkg/serve/content"
 	"github.com/readium/go-toolkit/pkg/streamer"
 	"github.com/readium/go-toolkit/pkg/util/url"
 	"github.com/spf13/cobra"
@@ -99,10 +100,10 @@ access to publications and prevent abuse or unauthorized access.`,
 		for i, v := range schemeFlag {
 			lowerScheme := url.Scheme(strings.ToLower(v)) // Accomodate for wrong capitalization
 			switch lowerScheme {
-			case url.SchemeFile, url.SchemeHTTP, url.SchemeHTTPS, url.SchemeS3, url.SchemeGS:
+			case url.SchemeFile, url.SchemeHTTP, url.SchemeHTTPS, url.SchemeS3, url.SchemeGS, content.SchemeContent:
 				schemes[i] = lowerScheme
 			default:
-				return fmt.Errorf("invalid scheme %q, acceptable values: file, http, https, s3, gs", v)
+				return fmt.Errorf("invalid scheme %q, acceptable values: file, http, https, s3, gs, content", v)
 			}
 		}
 
@@ -217,6 +218,12 @@ access to publications and prevent abuse or unauthorized access.`,
 		remote.Config.Timeout = time.Duration(remoteArchiveTimeoutFlag) * time.Second
 		remote.Config.CacheAllThreshold = int64(remoteArchiveCacheAll)
 
+		// Content fetcher
+		var contentFetcher *content.Fetcher
+		if slices.Contains(schemes, content.SchemeContent) {
+			contentFetcher = content.NewFetcher(remote.HTTP)
+		}
+
 		var authProvider auth.AuthProvider
 		switch mode {
 		case "base64":
@@ -263,6 +270,7 @@ access to publications and prevent abuse or unauthorized access.`,
 			JSONIndent:        indentFlag,
 			InferA11yMetadata: streamer.InferA11yMetadata(inferA11yFlag),
 			Auth:              authProvider,
+			ContentFetcher:    contentFetcher,
 		}, remote)
 
 		bind := fmt.Sprintf("%s:%d", bindAddressFlag, bindPortFlag)

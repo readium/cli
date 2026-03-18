@@ -10,13 +10,17 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
+
+	nurl "net/url"
 
 	"github.com/gorilla/mux"
 	httprange "github.com/gotd/contrib/http_range"
 	"github.com/pkg/errors"
 	"github.com/readium/cli/pkg/serve/cache"
+	"github.com/readium/cli/pkg/serve/content"
 	"github.com/readium/go-toolkit/pkg/archive"
 	"github.com/readium/go-toolkit/pkg/asset"
 	"github.com/readium/go-toolkit/pkg/fetcher"
@@ -28,6 +32,27 @@ import (
 )
 
 func (s *Server) getPublication(ctx context.Context, filename string) (*pub.Publication, bool, time.Time, error) {
+	var doc *content.ContentDocument
+	if strings.HasPrefix(filename, content.SchemeContent+":") {
+		if s.config.ContentFetcher == nil {
+			return nil, false, time.Time{}, errors.New("content API is not available")
+		}
+		cloc, err := nurl.Parse(filename)
+		if err != nil {
+			return nil, false, time.Time{}, errors.Wrap(err, "failed parsing content URL")
+		}
+		// Example: content:https://example.com/data.json --> https://example.com/data.json
+		if cloc.Opaque == "" {
+			return nil, false, time.Time{}, errors.New("content URL is missing data")
+		}
+
+		doc, err = s.config.ContentFetcher.Fetch(ctx, cloc.Opaque)
+		if err != nil {
+			return nil, false, time.Time{}, errors.Wrap(err, "failed fetching content data")
+		}
+		filename, _ = doc.PublicationURL()
+	}
+
 	loc, err := url.URLFromString(filename)
 	if err != nil {
 		return nil, false, time.Time{}, errors.Wrap(err, "failed creating URL from filepath")
@@ -42,6 +67,9 @@ func (s *Server) getPublication(ctx context.Context, filename string) (*pub.Publ
 			InferA11yMetadata: s.config.InferA11yMetadata,
 			HttpClient:        s.remote.HTTP,
 			AddServiceLinks:   true,
+		}
+		if doc != nil {
+			config.OnCreatePublication = doc.Injector()
 		}
 		if !s.remote.AcceptsScheme(u.Scheme()) {
 			return nil, remote, time.Time{}, errors.New("unacceptable scheme " + u.Scheme().String())
