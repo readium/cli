@@ -45,9 +45,13 @@ func (s *Server) Routes() *mux.Router {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			vars := mux.Vars(r)
 			token := vars["path"]
-			newPath, status, err := s.config.Auth.Validate(token)
+			newPath, status, err := s.config.Auth.Validate(w, r, token)
 			if err != nil {
 				http.Error(w, err.Error(), status)
+				return
+			}
+			if status == http.StatusFound {
+				http.Redirect(w, r, newPath, http.StatusFound)
 				return
 			}
 			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ContextPathKey, newPath)))
