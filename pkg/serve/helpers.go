@@ -10,7 +10,8 @@ import (
 )
 
 var mimeSubstitutions = map[string]string{
-	"application/vnd.ms-opentype": "font/otf", // Not just because it's sane, but because CF will compress it!
+	"application/vnd.ms-opentype": "font/otf",               // Not just because it's sane, but because CF will compress it!
+	"audio/opus":                  "audio/ogg; codecs=opus", // For max compatibility
 }
 
 var utfCharsetNeeded = []string{
@@ -74,7 +75,7 @@ func conformsToAsMimetype(conformsTo manifest.Profiles) mediatype.MediaType {
 func supportsEncoding(r *http.Request, encoding string) bool {
 	vv := r.Header.Values("Accept-Encoding")
 	for _, v := range vv {
-		for _, sv := range strings.Split(v, ",") {
+		for sv := range strings.SplitSeq(v, ",") {
 			coding := parseCoding(sv)
 			if coding == "" {
 				continue

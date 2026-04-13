@@ -14,7 +14,7 @@ type JWTAuthProvider struct {
 }
 
 func (j *JWTAuthProvider) Validate(token string) (string, int, error) {
-	t, err := j.parser.Parse(token, func(t *jwt.Token) (interface{}, error) {
+	t, err := j.parser.Parse(token, func(t *jwt.Token) (any, error) {
 		// We're relying on the parser to enforce method HS256
 		return j.sharedSecret, nil
 	})
