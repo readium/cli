@@ -32,27 +32,6 @@ import (
 )
 
 func (s *Server) getPublication(ctx context.Context, filename string) (*pub.Publication, bool, time.Time, error) {
-	var doc *content.ContentDocument
-	if strings.HasPrefix(filename, content.SchemeContent+":") {
-		if s.config.ContentFetcher == nil {
-			return nil, false, time.Time{}, errors.New("content API is not available")
-		}
-		cloc, err := nurl.Parse(filename)
-		if err != nil {
-			return nil, false, time.Time{}, errors.Wrap(err, "failed parsing content URL")
-		}
-		// Example: content:https://example.com/data.json --> https://example.com/data.json
-		if cloc.Opaque == "" {
-			return nil, false, time.Time{}, errors.New("content URL is missing data")
-		}
-
-		doc, err = s.config.ContentFetcher.Fetch(ctx, cloc.Opaque)
-		if err != nil {
-			return nil, false, time.Time{}, errors.Wrap(err, "failed fetching content data")
-		}
-		filename, _ = doc.PublicationURL()
-	}
-
 	loc, err := url.URLFromString(filename)
 	if err != nil {
 		return nil, false, time.Time{}, errors.Wrap(err, "failed creating URL from filepath")
@@ -61,6 +40,31 @@ func (s *Server) getPublication(ctx context.Context, filename string) (*pub.Publ
 
 	dat, ok := s.lfu.Get(u.String())
 	if !ok {
+		var doc *content.ContentDocument
+		if strings.HasPrefix(filename, content.SchemeContent+":") {
+			if s.config.ContentFetcher == nil {
+				return nil, false, time.Time{}, errors.New("content API is not available")
+			}
+			cloc, err := nurl.Parse(filename)
+			if err != nil {
+				return nil, false, time.Time{}, errors.Wrap(err, "failed parsing content URL")
+			}
+			// Example: content:https://example.com/data.json --> https://example.com/data.json
+			if cloc.Opaque == "" {
+				return nil, false, time.Time{}, errors.New("content URL is missing data")
+			}
+
+			doc, err = s.config.ContentFetcher.Fetch(ctx, cloc.Opaque)
+			if err != nil {
+				return nil, false, time.Time{}, errors.Wrap(err, "failed fetching content data")
+			}
+			filename, _ = doc.PublicationURL()
+
+			if _, err := doc.Enforce(); err != nil {
+				return nil, false, time.Time{}, err
+			}
+		}
+
 		var pub *pub.Publication
 		var remote bool
 		config := streamer.Config{
@@ -122,12 +126,43 @@ func (s *Server) getPublication(ctx context.Context, filename string) (*pub.Publ
 		}
 
 		// Cache the publication
-		encPub := cache.EncapsulatePublication(pub, remote)
+		encPub := cache.EncapsulatePublication(pub, doc, remote)
 		s.lfu.Set(u.String(), encPub)
 
 		return encPub.Publication, remote, encPub.CachedAt, nil
 	}
 	cp := dat.(*cache.CachedPublication)
+
+	if cp.Content.Rights != nil {
+		refresh, err := cp.Content.Rights.Enforce()
+		if refresh {
+			cloc, err := nurl.Parse(filename)
+			if err != nil {
+				return nil, false, time.Time{}, errors.Wrap(err, "failed parsing content URL")
+			}
+			// Example: content:https://example.com/data.json --> https://example.com/data.json
+			if cloc.Opaque == "" {
+				return nil, false, time.Time{}, errors.New("content URL is missing data")
+			}
+
+			var doc *content.ContentDocument
+			doc, err = s.config.ContentFetcher.Fetch(ctx, cloc.Opaque)
+			if err != nil {
+				return nil, false, time.Time{}, errors.Wrap(err, "failed fetching content data")
+			}
+			filename, _ = doc.PublicationURL()
+
+			if _, err := doc.Enforce(); err != nil {
+				return nil, false, time.Time{}, err
+			}
+
+			cp = cache.EncapsulatePublication(cp.Publication, doc, cp.Remote)
+			s.lfu.Set(u.String(), cp)
+		} else if err != nil {
+			return nil, false, time.Time{}, err
+		}
+	}
+
 	return cp.Publication, cp.Remote, cp.CachedAt, nil
 }
 

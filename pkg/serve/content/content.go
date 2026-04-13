@@ -10,11 +10,15 @@ import (
 
 const SchemeContent = "content"
 
-type Fetcher struct {
+type Fetcher interface {
+	Fetch(ctx context.Context, url string) (*ContentDocument, error)
+}
+
+type HTTPFetcher struct {
 	client *http.Client
 }
 
-func (f *Fetcher) Fetch(ctx context.Context, url string) (*ContentDocument, error) {
+func (f *HTTPFetcher) Fetch(ctx context.Context, url string) (*ContentDocument, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
@@ -42,8 +46,8 @@ func (f *Fetcher) Fetch(ctx context.Context, url string) (*ContentDocument, erro
 	return &doc, nil
 }
 
-func NewFetcher(client *http.Client) *Fetcher {
-	return &Fetcher{
+func NewHTTPFetcher(client *http.Client) Fetcher {
+	return &HTTPFetcher{
 		client: client,
 	}
 }

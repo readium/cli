@@ -1,6 +1,6 @@
 module github.com/readium/cli
 
-go 1.24.2
+go 1.26
 
 require (
 	cloud.google.com/go/storage v1.59.2
@@ -14,6 +14,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/gorilla/mux v1.8.1
 	github.com/gotd/contrib v0.21.1
+	github.com/maypok86/otter/v2 v2.3.0
 	github.com/pkg/errors v0.9.1
 	github.com/readium/go-toolkit v0.13.4
 	github.com/spf13/cobra v1.10.2
@@ -21,6 +22,7 @@ require (
 	github.com/zeebo/xxh3 v1.1.0
 	golang.org/x/sync v0.19.0
 	google.golang.org/api v0.264.0
+	lukechampine.com/blake3 v1.4.1
 )
 
 require (
@@ -59,6 +61,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chocolatkey/gzran v0.0.0-20251204101541-d8891e235711 // indirect
 	github.com/cncf/xds/go v0.0.0-20251022180443-0feb69152e9f // indirect
+	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/deckarep/golang-set v1.8.0 // indirect
 	github.com/disintegration/imaging v1.6.2 // indirect
 	github.com/envoyproxy/go-control-plane/envoy v1.35.0 // indirect
@@ -82,10 +85,12 @@ require (
 	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
 	github.com/pdfcpu/pdfcpu v0.11.1 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
+	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/readium/xmlquery v0.0.0-20230106230237-8f493145aef4 // indirect
 	github.com/relvacode/iso8601 v1.7.0 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/spiffe/go-spiffe/v2 v2.6.0 // indirect
+	github.com/stretchr/testify v1.11.1 // indirect
 	github.com/trimmer-io/go-xmp v1.0.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/detectors/gcp v1.38.0 // indirect
@@ -111,4 +116,5 @@ require (
 	google.golang.org/grpc v1.78.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

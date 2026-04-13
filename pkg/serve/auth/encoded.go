@@ -8,7 +8,7 @@ import (
 
 type B64EncodedAuthProvider struct{}
 
-func (n *B64EncodedAuthProvider) Validate(token string) (string, int, error) {
+func (n *B64EncodedAuthProvider) Validate(r *http.Request, token string) (string, int, error) {
 	path, err := base64.RawURLEncoding.DecodeString(token)
 	if err != nil {
 		return "", http.StatusBadRequest, fmt.Errorf("invalid base64url path: %w", err)

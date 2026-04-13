@@ -47,6 +47,7 @@ var mode string
 
 var jwtSharedSecret string
 var jwksURL string
+var defaultBondingMaxDevices uint16
 
 // Cloud-related flags
 var s3EndpointFlag string
@@ -58,6 +59,7 @@ var s3UsePathStyleFlag bool
 var httpHostWhitelistFlag []string
 var httpUnsafeRequestsFlag bool
 var httpAuthorizationFlag string
+var specificHttpAuthorizationFlag []string
 
 var remoteArchiveTimeoutFlag uint32
 var remoteArchiveCacheSize uint32
@@ -205,7 +207,19 @@ access to publications and prevent abuse or unauthorized access.`,
 			}
 			urlWhitelist[i] = parsedURL
 		}
-		remote.HTTP, err = client.NewHTTPClient(httpAuthorizationFlag, urlWhitelist, httpUnsafeRequestsFlag)
+		hostAuthMap := map[string]string{
+			"*": httpAuthorizationFlag, // Default authorization
+		}
+		for _, entry := range specificHttpAuthorizationFlag {
+			parts := strings.SplitN(entry, "::", 2)
+			if len(parts) != 2 {
+				return fmt.Errorf("invalid specific HTTP authorization entry: %s, expected format 'host::authorization'", entry)
+			}
+			host := parts[0]
+			auth := parts[1]
+			hostAuthMap[host] = auth
+		}
+		remote.HTTP, err = client.NewHTTPClient(hostAuthMap, urlWhitelist, httpUnsafeRequestsFlag)
 		if err != nil {
 			slog.Warn("HTTP client creation failed, HTTP support will be disabled", "error", err)
 		}
@@ -219,9 +233,9 @@ access to publications and prevent abuse or unauthorized access.`,
 		remote.Config.CacheAllThreshold = int64(remoteArchiveCacheAll)
 
 		// Content fetcher
-		var contentFetcher *content.Fetcher
+		var contentFetcher content.Fetcher
 		if slices.Contains(schemes, content.SchemeContent) {
-			contentFetcher = content.NewFetcher(remote.HTTP)
+			contentFetcher = content.NewHTTPFetcher(remote.HTTP)
 		}
 
 		var authProvider auth.AuthProvider
@@ -305,6 +319,7 @@ func init() {
 
 	serveCmd.Flags().StringVar(&jwtSharedSecret, "jwt-shared-secret", "", "Hex-encoded shared secret used for HS256 JWT signature validation. If omitted, but JWT auth is enabled, the secret is auto-generated and logged (debug) at runtime")
 	serveCmd.Flags().StringVar(&jwksURL, "jwks-url", "", "URL to a JWKS (JSON Web Key Set) used for JWT signature validation when in 'jwks' mode")
+	serveCmd.Flags().Uint16Var(&defaultBondingMaxDevices, "default-bonding-max-devices", 2, "If not set in content rights, the default maximum number of devices to allow for bonding to a JWT in jwt-weak-bonding mode")
 
 	serveCmd.Flags().StringVar(&fileDirectoryFlag, "file-directory", "", "Local directory path to serve publications from")
 
@@ -317,6 +332,7 @@ func init() {
 	serveCmd.Flags().StringSliceVar(&httpHostWhitelistFlag, "http-host-whitelist", []string{}, "Whitelist of HTTP hosts/paths to allow for remote HTTP requests (e.g. 'http://1.1.1.1', 'https://na1.storage.example.com/the/path'). If omitted, anything that resolves to a public IP is allowed.")
 	serveCmd.Flags().BoolVar(&httpUnsafeRequestsFlag, "http-unsafe-requests", false, "Allow potentially unsafe HTTP requests to private IP addresses (e.g. localhost). Enable only if you completely control the requests made to the server, otherwise this can be dangerous")
 	serveCmd.Flags().StringVar(&httpAuthorizationFlag, "http-authorization", "", "HTTP authorization header value (e.g. 'Bearer <token>' or 'Basic <base64-credentials>')")
+	serveCmd.Flags().StringSliceVar(&specificHttpAuthorizationFlag, "http-host-authorization", []string{}, "Specific HTTP authorization header values for specific hosts/paths, in the format 'host::authorization', for example 'example.com::Bearer abc123'")
 
 	serveCmd.Flags().Uint32Var(&remoteArchiveTimeoutFlag, "remote-archive-timeout", 60, "Timeout for remote archive requests (in seconds)")
 	serveCmd.Flags().Uint32Var(&remoteArchiveCacheSize, "remote-archive-cache-size", 1024*1024, "Max size of items in an archive that can be cached (in bytes)")

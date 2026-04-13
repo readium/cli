@@ -3,6 +3,7 @@ package content
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"slices"
 	"time"
 
@@ -24,6 +25,9 @@ const (
 	ContentStatusExpired   ContentStatus = "expired"
 )
 
+// By default, rights should be re-fetched every hour
+const DefaultRightsTTL = 60 * time.Minute
+
 type ContentRights struct {
 	Status   ContentStatus `json:"status,omitempty"`
 	Expires  *time.Time    `json:"expires,omitempty"`
@@ -31,11 +35,65 @@ type ContentRights struct {
 	Print    *bool         `json:"print,omitempty"`
 	Devtools *bool         `json:"devtools,omitempty"`
 	Devices  *int          `json:"devices,omitempty"`
+	TTL      *int          `json:"ttl,omitempty"`
+
+	refreshedAt time.Time
 }
 
 // Empty returns true if all fields in the rights object are zero values.
 func (r *ContentRights) Empty() bool {
-	return r.Status == "" && r.Expires == nil && r.Copy == nil && r.Print == nil && r.Devtools == nil && r.Devices == nil
+	return r == nil || (r.Status == "" && r.Expires == nil && r.Copy == nil && r.Print == nil && r.Devtools == nil && r.Devices == nil && r.TTL == nil)
+}
+
+var ErrContentRevoked = errors.New("content access has been revoked")
+var ErrContentReturned = errors.New("content has been returned")
+var ErrContentCancelled = errors.New("content access has been cancelled")
+var ErrContentExpired = errors.New("content access has expired")
+
+// Enforce checks the content rights and returns an error if access has been denied.
+// A boolean is also returned indicating whether the content document should be refreshed (fetched again from source)
+func (r *ContentRights) Enforce() (bool, error) {
+	if r.Empty() {
+		return false, nil
+	}
+
+	switch r.Status {
+	case ContentStatusRevoked:
+		return false, ErrContentRevoked
+	case ContentStatusReturned:
+		return false, ErrContentReturned
+	case ContentStatusCancelled:
+		return false, ErrContentCancelled
+	case ContentStatusExpired:
+		return false, ErrContentExpired
+	}
+
+	if r.Expires != nil {
+		if time.Now().After(*r.Expires) {
+			return false, ErrContentExpired
+		}
+	}
+
+	if r.TTL != nil {
+		if time.Since(r.refreshedAt) > time.Duration(*r.TTL)*time.Second {
+			return true, nil
+		}
+	} else if time.Since(r.refreshedAt) > DefaultRightsTTL {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func (r *ContentRights) UnmarshalJSON(data []byte) error {
+	type alias ContentRights
+	var obj alias
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return err
+	}
+	*r = ContentRights(obj)
+	r.refreshedAt = time.Now()
+	return nil
 }
 
 // ContentMetadata contains optional metadata fields that can override
@@ -235,6 +293,14 @@ func (d *ContentDocument) Injector() func(builder *pub.Builder) error {
 		builder.ServicesBuilder.Set(ContentDocumentService_Name, &factory)
 		return nil
 	}
+}
+
+func (d *ContentDocument) Enforce() (bool, error) {
+	if d.Rights == nil {
+		return false, nil
+	}
+
+	return d.Rights.Enforce()
 }
 
 type contentRightsService struct {

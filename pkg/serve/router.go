@@ -45,7 +45,7 @@ func (s *Server) Routes() *mux.Router {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			vars := mux.Vars(r)
 			token := vars["path"]
-			newPath, status, err := s.config.Auth.Validate(w, r, token)
+			newPath, status, err := s.config.Auth.Validate(r, token)
 			if err != nil {
 				http.Error(w, err.Error(), status)
 				return

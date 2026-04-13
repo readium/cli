@@ -16,7 +16,7 @@ type JWKSAuthProvider struct {
 	parser *jwt.Parser
 }
 
-func (j *JWKSAuthProvider) Validate(token string) (string, int, error) {
+func (j *JWKSAuthProvider) Validate(r *http.Request, token string) (string, int, error) {
 	t, err := j.parser.Parse(token, j.kf.Keyfunc)
 	if err != nil {
 		if errors.Is(err, jwkset.ErrKeyNotFound) {

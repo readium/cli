@@ -47,7 +47,7 @@ type ServerConfig struct {
 	JSONIndent        string
 	InferA11yMetadata streamer.InferA11yMetadata
 	Auth              auth.AuthProvider
-	ContentFetcher    *content.Fetcher
+	ContentFetcher    content.Fetcher
 }
 
 type Server struct {
