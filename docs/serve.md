@@ -35,7 +35,7 @@ Many services provide an S3 compatible API. The `serve` command is fully compati
     ```sh
     readium serve -s s3 --s3-endpoint https://example.com/endpoint --s3-access-key {access-key} --s3-secret-key {secret-key}
     ```
-    
+
 ### Required flags
 
 | Flag | Description |
@@ -112,29 +112,41 @@ These settings can be overriden using dedicated flags:
 
 ## Fetching a manifest for a publication
 
-In its current version, the `serve` command relies on a single path from which all manifests can be fetched: `/{base64url-encoded-path-to-file}/manifest.json`.
+In its current version, the `serve` command relies on a single path from which all manifests can be fetched: `/webpub/{base64url-encoded-path-to-file}/manifest.json`.
 
 Each scheme supports a dedicated URI scheme:
 
 | Scheme | URI scheme | Path |
 | ------ | ---------- | ---- |
-| Filesystem | `file://` | Path to a given file relative to the path provided in `--file-directory`.
+| Filesystem | *(none)* | Path to a given file relative to the path provided in `--file-directory`. Used directly without a URI scheme prefix. |
 | HTTP | `http://` | URL |
 | HTTPS | `https://` | URL |
 | S3 | `s3://` | Path to a bucket, followed by a path to a file (key) in that bucket: `s3://{bucket}/{path-to-file}` |
 | Google Cloud Storage | `gs://` | Path to a bucket, followed by a path to a file (key) in that bucket: `gs://{bucket}/{path-to-file}` |
 
-Once calculated, the URI scheme and path to the file have to be [base64url](https://datatracker.ietf.org/doc/html/rfc4648#section-5) encoded in order to generate a path to a manifest.
+Once calculated, the path (with its URI scheme, where applicable) has to be [base64url](https://datatracker.ietf.org/doc/html/rfc4648#section-5) encoded (without padding) in order to generate a path to a manifest.
 
-### Example
+### Examples
+
+#### Filesystem
+
+```sh
+  readium serve --file-directory /srv/epubs/
+```
+
+* I'd like to stream `example_epub.epub` from a local directory `/srv/epubs/`
+* We base64url-encode (without padding) the path relative to `--file-directory`, which in this case is just the filename `example_epub.epub` → `ZXhhbXBsZV9lcHViLmVwdWI`
+* The manifest for that file can be accessed at <http://localhost:15080/webpub/ZXhhbXBsZV9lcHViLmVwdWI/manifest.json>
+
+#### HTTPS
 
 ```sh
   readium serve -s gs,https
 ```
 
 * I'd like to stream <https://github.com/IDPF/epub3-samples/releases/download/20230704/accessible_epub_3.epub>
-* Which can be base64url encoded to `aHR0cHM6Ly9naXRodWIuY29tL0lEUEYvZXB1YjMtc2FtcGxlcy9yZWxlYXNlcy9kb3dubG9hZC8yMDIzMDcwNC9hY2Nlc3NpYmxlX2VwdWJfMy5lcHVi`
-* The manifest for that file can be accessed at <http://localhost:15080/aHR0cHM6Ly9naXRodWIuY29tL0lEUEYvZXB1YjMtc2FtcGxlcy9yZWxlYXNlcy9kb3dubG9hZC8yMDIzMDcwNC9hY2Nlc3NpYmxlX2VwdWJfMy5lcHVi/manifest.json>
+* Which can be base64url encoded (without padding) to `aHR0cHM6Ly9naXRodWIuY29tL0lEUEYvZXB1YjMtc2FtcGxlcy9yZWxlYXNlcy9kb3dubG9hZC8yMDIzMDcwNC9hY2Nlc3NpYmxlX2VwdWJfMy5lcHVi`
+* The manifest for that file can be accessed at <http://localhost:15080/webpub/aHR0cHM6Ly9naXRodWIuY29tL0lEUEYvZXB1YjMtc2FtcGxlcy9yZWxlYXNlcy9kb3dubG9hZC8yMDIzMDcwNC9hY2Nlc3NpYmxlX2VwdWJfMy5lcHVi/manifest.json>
 
 ## Additional services
 
