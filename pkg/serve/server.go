@@ -48,6 +48,7 @@ type ServerConfig struct {
 	InferA11yMetadata     streamer.InferA11yMetadata
 	Auth                  auth.AuthProvider
 	ReadingSessionFetcher session.Fetcher
+	CORSAllowedOrigins    []string
 }
 
 type Server struct {

@@ -73,6 +73,8 @@ var remoteArchiveCacheSize uint32
 var remoteArchiveCacheCount uint32
 var remoteArchiveCacheAll uint32
 
+var corsAllowedOriginsFlag []string
+
 var serveCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "Start a local HTTP server, serving publications locally or remotely",
@@ -282,8 +284,8 @@ access to publications and prevent abuse or unauthorized access.`,
 				return fmt.Errorf("failed creating JWKS auth provider: %w", err)
 			}
 		case "jwt-bonding":
-			if len(schemes) > 1 || !slices.Contains(schemes, session.SchemeReadingSession) {
-				return fmt.Errorf("in jwt-bonding mode, only the reading session scheme is allowed, and it must be enabled")
+			if !slices.Contains(schemes, session.SchemeReadingSession) {
+				return fmt.Errorf("in jwt-bonding mode, the reading session scheme must be enabled")
 			}
 
 			var sharedSecret []byte
@@ -328,8 +330,8 @@ access to publications and prevent abuse or unauthorized access.`,
 			if jwksURL == "" {
 				return fmt.Errorf("jwks-url must be specified in jwks-bonding mode")
 			}
-			if len(schemes) > 1 || !slices.Contains(schemes, session.SchemeReadingSession) {
-				return fmt.Errorf("in jwks-bonding mode, only the reading session scheme is allowed, and it must be enabled")
+			if !slices.Contains(schemes, session.SchemeReadingSession) {
+				return fmt.Errorf("in jwks-bonding mode, the reading session scheme must be enabled")
 			}
 			slog.Info("Operating in JWKS JWT access mode with bonding", "jwks_url", jwksURL)
 
@@ -365,15 +367,20 @@ access to publications and prevent abuse or unauthorized access.`,
 			InferA11yMetadata:     streamer.InferA11yMetadata(inferA11yFlag),
 			Auth:                  authProvider,
 			ReadingSessionFetcher: readingSessionFetcher,
+			CORSAllowedOrigins:    corsAllowedOriginsFlag,
 		}, remote)
 
 		bind := fmt.Sprintf("%s:%d", bindAddressFlag, bindPortFlag)
+		protocols := new(http.Protocols)
+		protocols.SetHTTP1(true)
+		protocols.SetUnencryptedHTTP2(true)
 		httpServer := &http.Server{
 			ReadTimeout:    10 * time.Second,
-			WriteTimeout:   600 * time.Second, // 5 minutes for server to respond with resource
+			IdleTimeout:    120 * time.Second,
 			MaxHeaderBytes: 1 << 20,
 			Addr:           bind,
 			Handler:        pubServer.Routes(),
+			Protocols:      protocols,
 		}
 		slog.Info("Starting HTTP server", "address", "http://"+httpServer.Addr)
 		if err := httpServer.ListenAndServe(); err != http.ErrServerClosed {
@@ -425,4 +432,6 @@ func init() {
 	serveCmd.Flags().Uint32Var(&remoteArchiveCacheSize, "remote-archive-cache-size", 1024*1024, "Max size of items in an archive that can be cached (in bytes)")
 	serveCmd.Flags().Uint32Var(&remoteArchiveCacheCount, "remote-archive-cache-count", 64, "Max number of items in an archive that can be cached")
 	serveCmd.Flags().Uint32Var(&remoteArchiveCacheAll, "remote-archive-cache-all", 1024*1024, "Archives this size or less (in bytes) will be cached in full")
+
+	serveCmd.Flags().StringSliceVar(&corsAllowedOriginsFlag, "cors-allowed-origin", []string{"*"}, "Allowed origins for CORS requests. Repeat the flag or comma-separate to allow multiple origins (e.g. 'https://reader.example.com'). Use '*' to allow any origin")
 }

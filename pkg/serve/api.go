@@ -21,6 +21,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/readium/cli/pkg/serve/auth"
 	"github.com/readium/cli/pkg/serve/cache"
+	"github.com/readium/cli/pkg/serve/problems"
 	"github.com/readium/cli/pkg/serve/session"
 	"github.com/readium/go-toolkit/pkg/archive"
 	"github.com/readium/go-toolkit/pkg/asset"
@@ -35,53 +36,76 @@ import (
 func (s *Server) getPublication(ctx context.Context) (*pub.Publication, bool, time.Time, error) {
 	filename, ok := ctx.Value(auth.ContextPathKey).(string)
 	if !ok {
-		return nil, false, time.Time{}, errors.New("missing publication path in context")
+		return nil, false, time.Time{}, problems.Internal("missing publication path in context", nil)
 	}
 
-	loc, err := url.URLFromString(filename)
-	if err != nil {
-		return nil, false, time.Time{}, errors.Wrap(err, "failed creating URL from filepath")
+	isSession := strings.HasPrefix(filename, session.SchemeReadingSession+":")
+	bap, bapok := s.config.Auth.(auth.BondingAuthProvider)
+	var u url.AbsoluteURL
+	var cacheKey string
+	if isSession {
+		// Reading session (`session:`) URLs are not supported by the url package in
+		// the go-toolkit, so they are used as the raw cache key without parsing
+		cacheKey = filename
+	} else {
+		if bapok {
+			// Cannot have non-session publication when bonding auth is enabled
+			return nil, false, time.Time{}, problems.BadRequest.Build().
+				Detail("non-session publication URLs are not allowed when bonding auth is enabled").Problem()
+		}
+		loc, err := url.URLFromString(filename)
+		if err != nil {
+			return nil, false, time.Time{}, problems.BadRequest.Build().Wrap(err).
+				Detail("failed creating URL from filepath").Problem()
+		}
+		u = url.BaseFile.Resolve(loc).(url.AbsoluteURL) // Turn relative filepaths into file:/// URLs
+		cacheKey = u.String()
 	}
-	u := url.BaseFile.Resolve(loc).(url.AbsoluteURL) // Turn relative filepaths into file:/// URLs
-	cacheKey := u.String()
 
 	dat, ok := s.lfu.Get(cacheKey)
 	if !ok {
 		var doc *session.ReadingSessionDocument
-		if strings.HasPrefix(filename, session.SchemeReadingSession+":") {
+		if isSession {
 			if s.config.ReadingSessionFetcher == nil {
-				return nil, false, time.Time{}, errors.New("reading session API is not available")
+				return nil, false, time.Time{}, problems.NotImplemented.Build().
+					Detail("reading session API is not available").Problem()
 			}
 			cloc, err := nurl.Parse(filename)
 			if err != nil {
-				return nil, false, time.Time{}, errors.Wrap(err, "failed parsing reading session URL")
+				return nil, false, time.Time{}, problems.BadRequest.Build().Wrap(err).
+					Detail("failed parsing reading session URL").Problem()
 			}
 			// Example: session:https://example.com/data.json --> https://example.com/data.json
 			if cloc.Opaque == "" {
-				return nil, false, time.Time{}, errors.New("reading session URL is missing data")
+				return nil, false, time.Time{}, problems.BadRequest.Build().
+					Detail("reading session URL is missing data").Problem()
 			}
 
 			doc, err = s.config.ReadingSessionFetcher.Fetch(ctx, cloc.Opaque)
 			if err != nil {
-				return nil, false, time.Time{}, errors.Wrap(err, "failed fetching reading session data")
+				return nil, false, time.Time{}, problems.BadGateway.Build().Wrap(err).
+					Detail("failed fetching reading session data").Problem()
 			}
-			filename, _ = doc.PublicationURL()
 
 			if _, err := doc.Enforce(); err != nil {
-				return nil, false, time.Time{}, err
+				return nil, false, time.Time{}, problems.From(err)
 			}
 
-			// Re-derive u from the resolved publication URL so the open logic
-			// targets the actual publication rather than the session: URL.
-			loc, err := url.URLFromString(filename)
+			pubURL, hasPub := doc.PublicationURL()
+			if !hasPub {
+				return nil, false, time.Time{}, problems.BadGateway.Build().
+					Detail("reading session document is missing a publication URL").Problem()
+			}
+			loc, err := url.URLFromString(pubURL)
 			if err != nil {
-				return nil, false, time.Time{}, errors.Wrap(err, "failed creating URL from publication URL")
+				return nil, false, time.Time{}, problems.Internal("failed creating URL from publication URL", err)
 			}
 			u = url.BaseFile.Resolve(loc).(url.AbsoluteURL)
 		}
 
 		var pub *pub.Publication
 		var remote bool
+		var err error
 		config := streamer.Config{
 			InferA11yMetadata: s.config.InferA11yMetadata,
 			HttpClient:        s.remote.HTTP,
@@ -91,52 +115,61 @@ func (s *Server) getPublication(ctx context.Context) (*pub.Publication, bool, ti
 			config.OnCreatePublication = doc.Injector()
 		}
 		if !s.remote.AcceptsScheme(u.Scheme()) {
-			return nil, remote, time.Time{}, errors.New("unacceptable scheme " + u.Scheme().String())
+			return nil, remote, time.Time{}, problems.BadRequest.Build().
+				Detailf("unacceptable scheme %q", u.Scheme().String()).Problem()
 		}
 		if u.IsFile() {
 			path, err := url.FromFilepath(filepath.Join(s.remote.LocalDirectory, path.Clean(u.Path())))
 			if err != nil {
-				return nil, remote, time.Time{}, errors.Wrap(err, "failed creating URL from filepath")
+				return nil, remote, time.Time{}, problems.Internal("failed creating URL from filepath", err)
 			}
 
 			pub, err = streamer.New(config).Open(ctx, asset.File(path), "")
 			if err != nil {
-				return nil, remote, time.Time{}, errors.Wrap(err, "failed opening "+path.String())
+				return nil, remote, time.Time{}, problems.NotFound.Build().Wrap(err).
+					Detailf("failed opening %s", path.String()).Problem()
 			}
 		} else {
 			switch u.Scheme() {
 			case url.SchemeS3:
 				remote = true
 				if s.remote.S3 == nil {
-					return nil, remote, time.Time{}, errors.New("S3 client not configured")
+					return nil, remote, time.Time{}, problems.NotImplemented.Build().
+						Detail("S3 client not configured").Problem()
 				}
 				config.ArchiveFactory = archive.NewS3ArchiveFactory(s.remote.S3, archive.NewDefaultRemoteArchiveConfig())
 				pub, err = streamer.New(config).Open(ctx, asset.S3(s.remote.S3, u), "")
 				if err != nil {
-					return nil, remote, time.Time{}, errors.Wrap(err, "failed opening "+u.String())
+					return nil, remote, time.Time{}, problems.BadGateway.Build().Wrap(err).
+						Detailf("failed opening %s", u.String()).Problem()
 				}
 			case url.SchemeGS:
 				remote = true
 				if s.remote.GCS == nil {
-					return nil, remote, time.Time{}, errors.New("GCS client not configured")
+					return nil, remote, time.Time{}, problems.NotImplemented.Build().
+						Detail("GCS client not configured").Problem()
 				}
 				config.ArchiveFactory = archive.NewGCSArchiveFactory(s.remote.GCS, archive.NewDefaultRemoteArchiveConfig())
 				pub, err = streamer.New(config).Open(ctx, asset.GCS(s.remote.GCS, u), "")
 				if err != nil {
-					return nil, remote, time.Time{}, errors.Wrap(err, "failed opening "+u.String())
+					return nil, remote, time.Time{}, problems.BadGateway.Build().Wrap(err).
+						Detailf("failed opening %s", u.String()).Problem()
 				}
 			case url.SchemeHTTP, url.SchemeHTTPS:
 				remote = true
 				if s.remote.HTTP == nil {
-					return nil, remote, time.Time{}, errors.New("HTTP client not configured")
+					return nil, remote, time.Time{}, problems.NotImplemented.Build().
+						Detail("HTTP client not configured").Problem()
 				}
 				config.ArchiveFactory = archive.NewHTTPArchiveFactory(s.remote.HTTP, archive.NewDefaultRemoteArchiveConfig())
 				pub, err = streamer.New(config).Open(ctx, asset.HTTP(s.remote.HTTP, u), "")
 				if err != nil {
-					return nil, remote, time.Time{}, errors.Wrap(err, "failed opening "+u.String())
+					return nil, remote, time.Time{}, problems.BadGateway.Build().Wrap(err).
+						Detailf("failed opening %s", u.String()).Problem()
 				}
 			default:
-				return nil, remote, time.Time{}, errors.New("unsupported scheme " + u.Scheme().String())
+				return nil, remote, time.Time{}, problems.BadRequest.Build().
+					Detailf("unsupported scheme %q", u.Scheme().String()).Problem()
 			}
 		}
 
@@ -148,12 +181,11 @@ func (s *Server) getPublication(ctx context.Context) (*pub.Publication, bool, ti
 	}
 	cp := dat.(*cache.CachedPublication)
 
-	if cp.Session.Rights != nil {
-		bap, ok := s.config.Auth.(auth.BondingAuthProvider)
-		if ok {
+	if cp.Session != nil && cp.Session.Rights != nil {
+		if bapok {
 			bd, ok := ctx.Value(auth.BondingRecordContextKey).(auth.BondingData)
 			if !ok {
-				return nil, false, time.Time{}, errors.New("missing bonding data in context for bonding auth provider")
+				return nil, false, time.Time{}, problems.Internal("missing bonding data in context for bonding auth provider", nil)
 			}
 			deviceCount := cp.Session.Rights.DeviceCount(bap.MaxDevices())
 			if deviceCount > 0 {
@@ -183,7 +215,8 @@ func (s *Server) getPublication(ctx context.Context) (*pub.Publication, bool, ti
 							}
 						}
 						if time.Since(newestBond) < bap.MinDeviceEvictionInterval() {
-							return nil, false, time.Time{}, errors.New("device limit exceeded for this publication")
+							return nil, false, time.Time{}, problems.DeviceLimitExceeded.Build().
+								Detail("device limit exceeded for this publication").Problem()
 						}
 						bd.Evict(limit - 1)
 					}
@@ -200,32 +233,34 @@ func (s *Server) getPublication(ctx context.Context) (*pub.Publication, bool, ti
 		refresh, err := cp.Session.Rights.Enforce()
 		if refresh {
 			if s.config.ReadingSessionFetcher == nil {
-				return nil, false, time.Time{}, errors.New("reading session API is not available")
+				return nil, false, time.Time{}, problems.NotImplemented.Build().
+					Detail("reading session API is not available").Problem()
 			}
 			cloc, err := nurl.Parse(filename)
 			if err != nil {
-				return nil, false, time.Time{}, errors.Wrap(err, "failed parsing reading session URL")
+				return nil, false, time.Time{}, problems.Internal("failed parsing reading session URL", err)
 			}
 			// Example: session:https://example.com/data.json --> https://example.com/data.json
 			if cloc.Opaque == "" {
-				return nil, false, time.Time{}, errors.New("reading session URL is missing data")
+				return nil, false, time.Time{}, problems.Internal("reading session URL is missing data", nil)
 			}
 
 			var doc *session.ReadingSessionDocument
 			doc, err = s.config.ReadingSessionFetcher.Fetch(ctx, cloc.Opaque)
 			if err != nil {
-				return nil, false, time.Time{}, errors.Wrap(err, "failed fetching reading session data")
+				return nil, false, time.Time{}, problems.BadGateway.Build().Wrap(err).
+					Detail("failed fetching reading session data").Problem()
 			}
 			filename, _ = doc.PublicationURL()
 
 			if _, err := doc.Enforce(); err != nil {
-				return nil, false, time.Time{}, err
+				return nil, false, time.Time{}, problems.From(err)
 			}
 
 			cp = cache.EncapsulatePublication(cp.Publication, doc, cp.Remote)
 			s.lfu.Set(cacheKey, cp)
 		} else if err != nil {
-			return nil, false, time.Time{}, err
+			return nil, false, time.Time{}, problems.From(err)
 		}
 	}
 
@@ -239,10 +274,7 @@ func (s *Server) getManifest(w http.ResponseWriter, req *http.Request) {
 	publication, _, cachedAt, err := s.getPublication(req.Context())
 	if err != nil {
 		slog.Error("failed opening publication", "error", err)
-		w.WriteHeader(500)
-		if s.config.Debug {
-			w.Write([]byte(err.Error()))
-		}
+		problems.Write(err, w, req)
 		return
 	}
 
@@ -259,10 +291,7 @@ func (s *Server) getManifest(w http.ResponseWriter, req *http.Request) {
 	selfUrl, err := url.AbsoluteURLFromString(scheme + req.Host + rPath.String())
 	if err != nil {
 		slog.Error("failed creating self URL", "error", err)
-		w.WriteHeader(500)
-		if s.config.Debug {
-			w.Write([]byte(err.Error()))
-		}
+		problems.Write(problems.Internal("failed creating self URL", err), w, req)
 		return
 	}
 
@@ -281,17 +310,13 @@ func (s *Server) getManifest(w http.ResponseWriter, req *http.Request) {
 	}
 	if err != nil {
 		slog.Error("failed marshalling manifest JSON", "error", err)
-		w.WriteHeader(500)
-		if s.config.Debug {
-			w.Write([]byte(err.Error()))
-		}
+		problems.Write(problems.Internal("failed marshalling manifest JSON", err), w, req)
 		return
 	}
 
 	// Add headers
 	w.Header().Set("content-type", conformsTo.String()+"; charset=utf-8")
 	w.Header().Set("cache-control", "private, must-revalidate")
-	w.Header().Set("access-control-allow-origin", "*") // TODO: provide options?
 
 	// Etag based on hash of the manifest bytes
 	etag := `"` + strconv.FormatUint(xxh3.Hash(j), 36) + `"`
@@ -307,10 +332,7 @@ func (s *Server) getAsset(w http.ResponseWriter, r *http.Request) {
 	publication, remote, _, err := s.getPublication(r.Context())
 	if err != nil {
 		slog.Error("failed opening publication", "error", err)
-		w.WriteHeader(500)
-		if s.config.Debug {
-			w.Write([]byte(err.Error()))
-		}
+		problems.Write(err, w, r)
 		return
 	}
 
@@ -318,10 +340,7 @@ func (s *Server) getAsset(w http.ResponseWriter, r *http.Request) {
 	href, err := url.URLFromDecodedPath(path.Clean(vars["asset"]))
 	if err != nil {
 		slog.Error("failed parsing asset path as URL", "error", err)
-		w.WriteHeader(400)
-		if s.config.Debug {
-			w.Write([]byte(err.Error()))
-		}
+		problems.Write(problems.BadRequest.Build().Wrap(err).Detail("failed parsing asset path as URL").Problem(), w, r)
 		return
 	}
 	rawHref := href.Raw()
@@ -331,7 +350,7 @@ func (s *Server) getAsset(w http.ResponseWriter, r *http.Request) {
 	// Make sure the asset exists in the publication
 	link := publication.LinkWithHref(href)
 	if link == nil {
-		w.WriteHeader(http.StatusNotFound)
+		problems.Write(problems.NotFound.Build().Detailf("asset %q not found in publication", href.String()).Problem(), w, r)
 		return
 	}
 	finalLink := *link
@@ -348,8 +367,8 @@ func (s *Server) getAsset(w http.ResponseWriter, r *http.Request) {
 	// Get asset length in bytes
 	l, rerr := res.Length(r.Context())
 	if rerr != nil {
-		w.WriteHeader(rerr.HTTPStatus())
-		w.Write([]byte(rerr.Error()))
+		slog.Error("failed reading asset length", "error", rerr)
+		problems.Write(problems.FromResourceError(rerr), w, r)
 		return
 	}
 
@@ -364,7 +383,6 @@ func (s *Server) getAsset(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("content-type", contentType)
 	w.Header().Set("cache-control", "private, max-age=86400, immutable")
 	w.Header().Set("content-length", strconv.FormatInt(l, 10))
-	w.Header().Set("access-control-allow-origin", "*") // TODO: provide options?
 
 	var start, end int64
 	// Range reading assets
@@ -373,12 +391,12 @@ func (s *Server) getAsset(w http.ResponseWriter, r *http.Request) {
 		rng, err := httprange.ParseRange(rangeHeader, l)
 		if err != nil {
 			slog.Error("failed parsing range header", "error", err)
-			w.WriteHeader(http.StatusLengthRequired)
+			problems.Write(problems.RangeNotSatisfiable.Build().Wrap(err).Detail("failed parsing range header").Problem(), w, r)
 			return
 		}
 		if len(rng) > 1 {
 			slog.Error("no support for multiple read ranges")
-			w.WriteHeader(http.StatusNotImplemented)
+			problems.Write(problems.NotImplemented.Build().Detail("multiple read ranges are not supported").Problem(), w, r)
 			return
 		}
 		if len(rng) > 0 {

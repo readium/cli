@@ -1,15 +1,25 @@
 package serve
 
 import (
+	"log/slog"
 	"net/http"
 	"net/http/pprof"
 
 	"github.com/CAFxX/httpcompression"
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
+	"github.com/readium/cli/pkg/serve/problems"
 )
 
 func (s *Server) Routes() *mux.Router {
 	r := mux.NewRouter()
+
+	r.Use(handlers.CORS(
+		handlers.AllowedOrigins(s.config.CORSAllowedOrigins),
+		handlers.AllowedMethods([]string{http.MethodGet, http.MethodHead, http.MethodOptions}),
+		handlers.AllowedHeaders([]string{"Authorization", "Content-Type", "Range"}),
+		handlers.ExposedHeaders([]string{"Content-Length", "Content-Range", "Accept-Ranges"}),
+	))
 
 	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -41,17 +51,30 @@ func (s *Server) Routes() *mux.Router {
 			vars := mux.Vars(req)
 			token := vars["path"]
 			newRequest, aerr := s.config.Auth.Validate(w, req, token)
-			if aerr != nil {
-				if len(aerr.RedirectPath) > 0 {
-					ru, _ := r.Get("manifest").URLPath("path", aerr.RedirectPath)
-					http.Redirect(w, req, ru.String(), aerr.StatusCode)
-					return
-				}
-
-				http.Error(w, aerr.Err.Error(), aerr.StatusCode)
+			if aerr == nil {
+				next.ServeHTTP(w, newRequest)
 				return
 			}
-			next.ServeHTTP(w, newRequest)
+			if len(aerr.RedirectPath) > 0 {
+				ru, _ := r.Get("manifest").URLPath("path", aerr.RedirectPath)
+				http.Redirect(w, req, ru.String(), aerr.StatusCode)
+				return
+			}
+
+			slog.ErrorContext(req.Context(), "auth validation failed", "error", aerr.Err, "status", aerr.StatusCode)
+
+			var p error
+			switch aerr.StatusCode {
+			case http.StatusBadRequest:
+				p = problems.BadRequest.Build().Wrap(aerr.Err).Detail(aerr.Err.Error()).Problem()
+			case http.StatusForbidden:
+				p = problems.Forbidden.Build().Wrap(aerr.Err).Detail(aerr.Err.Error()).Problem()
+			case http.StatusGone:
+				p = problems.Gone.Build().Wrap(aerr.Err).Detail(aerr.Err.Error()).Problem()
+			default:
+				p = problems.Internal("", aerr.Err)
+			}
+			problems.Write(p, w, req)
 		})
 	})
 	pub.HandleFunc("", func(w http.ResponseWriter, req *http.Request) {
