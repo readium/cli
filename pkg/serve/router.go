@@ -16,6 +16,7 @@ func (s *Server) Routes() *mux.Router {
 
 	r.Use(handlers.CORS(
 		handlers.AllowedOrigins(s.config.CORSAllowedOrigins),
+		handlers.AllowCredentials(),
 		handlers.AllowedMethods([]string{http.MethodGet, http.MethodHead, http.MethodOptions}),
 		handlers.AllowedHeaders([]string{"Authorization", "Content-Type", "Range"}),
 		handlers.ExposedHeaders([]string{"Content-Length", "Content-Range", "Accept-Ranges"}),
