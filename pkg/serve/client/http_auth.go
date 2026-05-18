@@ -21,7 +21,7 @@ func (a *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	req2 := req.Clone(req.Context())
 
-	req2.Header.Set("User-Agent", "readium/"+version.Version+" (go-toolkit "+gv.Version+")")
+	req2.Header.Set("User-Agent", "Mozilla/5.0 (compatible; readium/"+version.Version+"; go-toolkit/"+gv.Version+")")
 
 	auth, ok := a.Authorization[req.URL.Host]
 	if !ok {
