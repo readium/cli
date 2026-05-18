@@ -17,12 +17,14 @@ require (
 	github.com/gorilla/handlers v1.5.2
 	github.com/gorilla/mux v1.8.1
 	github.com/gotd/contrib v0.21.1
+	github.com/klauspost/compress v1.18.6
 	github.com/maypok86/otter/v2 v2.3.0
 	github.com/pkg/errors v0.9.1
 	github.com/readium/go-toolkit v0.13.4
 	github.com/spf13/cobra v1.10.2
 	github.com/vmihailenco/go-tinylfu v0.2.2
 	github.com/zeebo/xxh3 v1.1.0
+	golang.org/x/sync v0.20.0
 	google.golang.org/api v0.274.0
 	lukechampine.com/blake3 v1.4.1
 )
@@ -82,7 +84,6 @@ require (
 	github.com/hhrutter/tiff v1.0.2 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/kettek/apng v0.0.0-20220823221153-ff692776a607 // indirect
-	github.com/klauspost/compress v1.18.6 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
 	github.com/pdfcpu/pdfcpu v0.11.1 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
@@ -108,7 +109,6 @@ require (
 	golang.org/x/image v0.38.0 // indirect
 	golang.org/x/net v0.54.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
-	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.44.0 // indirect
 	golang.org/x/text v0.37.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
