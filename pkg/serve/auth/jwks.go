@@ -16,33 +16,33 @@ type JWKSAuthProvider struct {
 	parser *jwt.Parser
 }
 
-func (j *JWKSAuthProvider) Validate(token string) (string, int, error) {
+func (j *JWKSAuthProvider) Validate(w http.ResponseWriter, r *http.Request, token string) (*http.Request, *AuthError) {
 	t, err := j.parser.Parse(token, j.kf.Keyfunc)
 	if err != nil {
 		if errors.Is(err, jwkset.ErrKeyNotFound) {
-			return "", http.StatusBadRequest, err
+			return nil, &AuthError{StatusCode: http.StatusBadRequest, Err: err}
 		} else if errors.Is(err, jwt.ErrTokenMalformed) {
-			return "", http.StatusBadRequest, err
+			return nil, &AuthError{StatusCode: http.StatusBadRequest, Err: err}
 		} else if errors.Is(err, jwt.ErrTokenSignatureInvalid) {
-			return "", http.StatusBadRequest, err
+			return nil, &AuthError{StatusCode: http.StatusBadRequest, Err: err}
 		} else if errors.Is(err, jwt.ErrTokenExpired) {
-			return "", http.StatusGone, err
+			return nil, &AuthError{StatusCode: http.StatusGone, Err: err}
 		} else {
-			return "", http.StatusInternalServerError, err
+			return nil, &AuthError{StatusCode: http.StatusInternalServerError, Err: err}
 		}
 	}
 	if !t.Valid {
-		return "", http.StatusBadRequest, errors.New("invalid JWT token")
+		return nil, &AuthError{StatusCode: http.StatusBadRequest, Err: errors.New("invalid JWT token")}
 	}
 	subject, err := t.Claims.GetSubject()
 	if err != nil {
-		return "", http.StatusBadRequest, errors.New("failed extracting subject from JWT")
+		return nil, &AuthError{StatusCode: http.StatusBadRequest, Err: errors.New("failed extracting subject from JWT")}
 	}
 	if subject == "" {
-		return "", http.StatusBadRequest, errors.New("JWT subject is empty")
+		return nil, &AuthError{StatusCode: http.StatusBadRequest, Err: errors.New("JWT subject is empty")}
 	}
 
-	return subject, http.StatusOK, nil
+	return r.WithContext(context.WithValue(r.Context(), ContextPathKey, subject)), nil
 }
 
 func NewJWKSAuthProvider(context context.Context, client *http.Client, jwksUrl string) (*JWKSAuthProvider, error) {
