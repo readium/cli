@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"slices"
+	"sync/atomic"
 	"time"
 
 	"github.com/readium/go-toolkit/pkg/fetcher"
@@ -142,6 +143,22 @@ type ReadingSessionDocument struct {
 	Links    manifest.LinkList       `json:"links"`
 	Rights   *ReadingSessionRights   `json:"rights,omitempty"`
 	Metadata *ReadingSessionMetadata `json:"metadata,omitempty"`
+
+	// rightsService is the publication service injected by Injector. It is
+	// retained so the rights it serves can be swapped after a TTL refresh
+	// without rebuilding the publication.
+	rightsService *readingSessionRightsService
+}
+
+type RightsService interface {
+	Update(rights *ReadingSessionRights)
+}
+
+func (d *ReadingSessionDocument) RightsService() RightsService {
+	if d.rightsService == nil {
+		return nil
+	}
+	return d.rightsService
 }
 
 // Merge overwrites fields in the manifest with any metadata provided
@@ -292,8 +309,10 @@ func (d *ReadingSessionDocument) Injector() func(builder *pub.Builder) error {
 
 		svc := &readingSessionRightsService{
 			link: link,
-			doc:  d.Rights,
 		}
+		svc.doc.Store(d.Rights)
+		d.rightsService = svc
+
 		factory := pub.ServiceFactory(func(_ pub.Context, _ bool) pub.Service {
 			return svc
 		})
@@ -312,7 +331,7 @@ func (d *ReadingSessionDocument) Enforce() (bool, error) {
 
 type readingSessionRightsService struct {
 	link manifest.Link
-	doc  *ReadingSessionRights
+	doc  atomic.Pointer[ReadingSessionRights]
 }
 
 func (s *readingSessionRightsService) Links() manifest.LinkList {
@@ -324,9 +343,13 @@ func (s *readingSessionRightsService) Get(_ context.Context, link manifest.Link)
 		return nil, false
 	}
 	return fetcher.NewBytesResource(s.link, func() []byte {
-		data, _ := json.Marshal(s.doc)
+		data, _ := json.Marshal(s.doc.Load())
 		return data
 	}), true
+}
+
+func (s *readingSessionRightsService) Update(rights *ReadingSessionRights) {
+	s.doc.Store(rights)
 }
 
 func (s *readingSessionRightsService) Close() {}
