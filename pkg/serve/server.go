@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/readium/cli/pkg/serve/auth"
 	"github.com/readium/cli/pkg/serve/cache"
+	"github.com/readium/cli/pkg/serve/session"
 	"github.com/readium/go-toolkit/pkg/archive"
 	"github.com/readium/go-toolkit/pkg/streamer"
 	"github.com/readium/go-toolkit/pkg/util/url"
@@ -42,10 +43,12 @@ func (r Remote) AcceptsScheme(scheme url.Scheme) bool {
 }
 
 type ServerConfig struct {
-	Debug             bool
-	JSONIndent        string
-	InferA11yMetadata streamer.InferA11yMetadata
-	Auth              auth.AuthProvider
+	Debug                 bool
+	JSONIndent            string
+	InferA11yMetadata     streamer.InferA11yMetadata
+	Auth                  auth.AuthProvider
+	ReadingSessionFetcher session.Fetcher
+	CORSAllowedOrigins    []string
 }
 
 type Server struct {
