@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 **Warning:** Features marked as *alpha* may change or be removed in a future release without notice. Use with caution.
 
+## [0.7.1] - 2026-05-18
+
+### Fixed
+
+- v0.7.0 was tagged to the wrong commit, this is otherwise identical to v0.7.0 in terms of changes.
+
 ## [0.7.0] - 2026-05-18
 
 ### Changed
