@@ -178,25 +178,25 @@ func (b *bondingCore) validateBondingJWT(w http.ResponseWriter, r *http.Request,
 	}
 	subject, err := claims.GetSubject()
 	if err != nil {
-		return nil, &AuthError{StatusCode: http.StatusBadRequest, Err: errors.New("failed extracting subject from JWT")}
+		return nil, &AuthError{StatusCode: http.StatusInternalServerError, Err: errors.New("failed extracting subject from JWT")}
 	}
 
 	claimDevice, err := base64.RawURLEncoding.DecodeString(claims.DeviceHash)
 	if err != nil || len(claimDevice) != 32 {
-		return nil, &AuthError{StatusCode: http.StatusBadRequest, Err: errors.New("invalid device hash in JWT")}
+		return nil, &AuthError{StatusCode: http.StatusInternalServerError, Err: errors.New("invalid device hash in JWT")}
 	}
 	claimAgent, err := base64.RawURLEncoding.DecodeString(claims.AgentHash)
 	if err != nil || len(claimAgent) != 32 {
-		return nil, &AuthError{StatusCode: http.StatusBadRequest, Err: errors.New("invalid agent hash in JWT")}
+		return nil, &AuthError{StatusCode: http.StatusInternalServerError, Err: errors.New("invalid agent hash in JWT")}
 	}
 
 	curDevice := b.deviceHash(deviceID)
 	curAgent := b.agentHash(deviceID, r)
 	if !bytes.Equal(curDevice[:], claimDevice) {
-		return nil, &AuthError{StatusCode: http.StatusForbidden, Err: errors.New("device hash mismatch")}
+		return nil, &AuthError{StatusCode: http.StatusForbidden, Err: errors.New("device integrity mismatch")}
 	}
 	if !bytes.Equal(curAgent[:], claimAgent) {
-		return nil, &AuthError{StatusCode: http.StatusForbidden, Err: errors.New("agent hash mismatch")}
+		return nil, &AuthError{StatusCode: http.StatusForbidden, Err: errors.New("browser integrity mismatch")}
 	}
 
 	b.setCookie(w, "device", deviceID.String(), time.Hour*24*90)
