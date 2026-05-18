@@ -61,17 +61,19 @@ func (s *Server) Routes() *mux.Router {
 				return
 			}
 
-			slog.ErrorContext(req.Context(), "auth validation failed", "error", aerr.Err, "status", aerr.StatusCode)
-
 			var p error
 			switch aerr.StatusCode {
 			case http.StatusBadRequest:
+				slog.DebugContext(req.Context(), "auth validation failed", "error", aerr.Err, "status", aerr.StatusCode)
 				p = problems.BadRequest.Build().Wrap(aerr.Err).Detail(aerr.Err.Error()).Problem()
 			case http.StatusForbidden:
+				slog.DebugContext(req.Context(), "auth validation failed", "error", aerr.Err, "status", aerr.StatusCode)
 				p = problems.Forbidden.Build().Wrap(aerr.Err).Detail(aerr.Err.Error()).Problem()
 			case http.StatusGone:
+				slog.DebugContext(req.Context(), "auth validation failed", "error", aerr.Err, "status", aerr.StatusCode)
 				p = problems.Gone.Build().Wrap(aerr.Err).Detail(aerr.Err.Error()).Problem()
 			default:
+				slog.ErrorContext(req.Context(), "auth validation failed", "error", aerr.Err, "status", aerr.StatusCode)
 				p = problems.Internal("", aerr.Err)
 			}
 			problems.Write(p, w, req)
