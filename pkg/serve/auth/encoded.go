@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"net/http"
@@ -8,12 +9,12 @@ import (
 
 type B64EncodedAuthProvider struct{}
 
-func (n *B64EncodedAuthProvider) Validate(r *http.Request, token string) (string, int, error) {
+func (n *B64EncodedAuthProvider) Validate(w http.ResponseWriter, r *http.Request, token string) (*http.Request, *AuthError) {
 	path, err := base64.RawURLEncoding.DecodeString(token)
 	if err != nil {
-		return "", http.StatusBadRequest, fmt.Errorf("invalid base64url path: %w", err)
+		return nil, &AuthError{StatusCode: http.StatusBadRequest, Err: fmt.Errorf("invalid base64url path: %w", err)}
 	}
-	return string(path), http.StatusOK, nil
+	return r.WithContext(context.WithValue(r.Context(), ContextPathKey, string(path))), nil
 }
 
 func NewB64EncodedAuthProvider() *B64EncodedAuthProvider {

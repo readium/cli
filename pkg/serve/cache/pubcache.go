@@ -3,20 +3,20 @@ package cache
 import (
 	"time"
 
-	"github.com/readium/cli/pkg/serve/content"
+	"github.com/readium/cli/pkg/serve/session"
 	"github.com/readium/go-toolkit/pkg/pub"
 )
 
 // CachedPublication implements Evictable
 type CachedPublication struct {
 	*pub.Publication
-	Content  *content.ContentDocument
+	Session  *session.ReadingSessionDocument
 	Remote   bool
 	CachedAt time.Time
 }
 
-func EncapsulatePublication(pub *pub.Publication, content *content.ContentDocument, remote bool) *CachedPublication {
-	return &CachedPublication{pub, content, remote, time.Now()}
+func EncapsulatePublication(pub *pub.Publication, session *session.ReadingSessionDocument, remote bool) *CachedPublication {
+	return &CachedPublication{pub, session, remote, time.Now()}
 }
 
 func (cp *CachedPublication) OnEvict() {

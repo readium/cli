@@ -1,17 +1,12 @@
 package serve
 
 import (
-	"context"
 	"net/http"
 	"net/http/pprof"
 
 	"github.com/CAFxX/httpcompression"
 	"github.com/gorilla/mux"
 )
-
-type ContextKey string
-
-const ContextPathKey ContextKey = "path"
 
 func (s *Server) Routes() *mux.Router {
 	r := mux.NewRouter()
@@ -42,19 +37,21 @@ func (s *Server) Routes() *mux.Router {
 		return adapter(next)
 	})
 	pub.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			vars := mux.Vars(r)
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			vars := mux.Vars(req)
 			token := vars["path"]
-			newPath, status, err := s.config.Auth.Validate(r, token)
-			if err != nil {
-				http.Error(w, err.Error(), status)
+			newRequest, aerr := s.config.Auth.Validate(w, req, token)
+			if aerr != nil {
+				if len(aerr.RedirectPath) > 0 {
+					ru, _ := r.Get("manifest").URLPath("path", aerr.RedirectPath)
+					http.Redirect(w, req, ru.String(), aerr.StatusCode)
+					return
+				}
+
+				http.Error(w, aerr.Err.Error(), aerr.StatusCode)
 				return
 			}
-			if status == http.StatusFound {
-				http.Redirect(w, r, newPath, http.StatusFound)
-				return
-			}
-			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ContextPathKey, newPath)))
+			next.ServeHTTP(w, newRequest)
 		})
 	})
 	pub.HandleFunc("", func(w http.ResponseWriter, req *http.Request) {

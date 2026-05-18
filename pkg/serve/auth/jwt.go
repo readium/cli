@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -13,36 +14,36 @@ type JWTAuthProvider struct {
 	parser       *jwt.Parser
 }
 
-func (j *JWTAuthProvider) Validate(r *http.Request, token string) (string, int, error) {
+func (j *JWTAuthProvider) Validate(w http.ResponseWriter, r *http.Request, token string) (*http.Request, *AuthError) {
 	t, err := j.parser.Parse(token, func(t *jwt.Token) (any, error) {
 		// We're relying on the parser to enforce method HS256
 		return j.sharedSecret, nil
 	})
 	if err != nil {
 		if errors.Is(err, jwkset.ErrKeyNotFound) {
-			return "", http.StatusBadRequest, err
+			return nil, &AuthError{StatusCode: http.StatusBadRequest, Err: err}
 		} else if errors.Is(err, jwt.ErrTokenMalformed) {
-			return "", http.StatusBadRequest, err
+			return nil, &AuthError{StatusCode: http.StatusBadRequest, Err: err}
 		} else if errors.Is(err, jwt.ErrTokenSignatureInvalid) {
-			return "", http.StatusBadRequest, err
+			return nil, &AuthError{StatusCode: http.StatusBadRequest, Err: err}
 		} else if errors.Is(err, jwt.ErrTokenExpired) {
-			return "", http.StatusGone, err
+			return nil, &AuthError{StatusCode: http.StatusGone, Err: err}
 		} else {
-			return "", http.StatusInternalServerError, err
+			return nil, &AuthError{StatusCode: http.StatusInternalServerError, Err: err}
 		}
 	}
 	if !t.Valid {
-		return "", http.StatusBadRequest, errors.New("invalid JWT token")
+		return nil, &AuthError{StatusCode: http.StatusBadRequest, Err: errors.New("invalid JWT token")}
 	}
 	subject, err := t.Claims.GetSubject()
 	if err != nil {
-		return "", http.StatusBadRequest, errors.New("failed extracting subject from JWT")
+		return nil, &AuthError{StatusCode: http.StatusBadRequest, Err: errors.New("failed extracting subject from JWT")}
 	}
 	if subject == "" {
-		return "", http.StatusBadRequest, errors.New("JWT subject is empty")
+		return nil, &AuthError{StatusCode: http.StatusBadRequest, Err: errors.New("JWT subject is empty")}
 	}
 
-	return subject, http.StatusOK, nil
+	return r.WithContext(context.WithValue(r.Context(), ContextPathKey, subject)), nil
 }
 
 func NewJWTAuthProvider(sharedSecret []byte) (*JWTAuthProvider, error) {

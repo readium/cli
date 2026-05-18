@@ -19,8 +19,9 @@ import (
 	"github.com/gorilla/mux"
 	httprange "github.com/gotd/contrib/http_range"
 	"github.com/pkg/errors"
+	"github.com/readium/cli/pkg/serve/auth"
 	"github.com/readium/cli/pkg/serve/cache"
-	"github.com/readium/cli/pkg/serve/content"
+	"github.com/readium/cli/pkg/serve/session"
 	"github.com/readium/go-toolkit/pkg/archive"
 	"github.com/readium/go-toolkit/pkg/asset"
 	"github.com/readium/go-toolkit/pkg/fetcher"
@@ -31,38 +32,52 @@ import (
 	"github.com/zeebo/xxh3"
 )
 
-func (s *Server) getPublication(ctx context.Context, filename string) (*pub.Publication, bool, time.Time, error) {
+func (s *Server) getPublication(ctx context.Context) (*pub.Publication, bool, time.Time, error) {
+	filename, ok := ctx.Value(auth.ContextPathKey).(string)
+	if !ok {
+		return nil, false, time.Time{}, errors.New("missing publication path in context")
+	}
+
 	loc, err := url.URLFromString(filename)
 	if err != nil {
 		return nil, false, time.Time{}, errors.Wrap(err, "failed creating URL from filepath")
 	}
 	u := url.BaseFile.Resolve(loc).(url.AbsoluteURL) // Turn relative filepaths into file:/// URLs
+	cacheKey := u.String()
 
-	dat, ok := s.lfu.Get(u.String())
+	dat, ok := s.lfu.Get(cacheKey)
 	if !ok {
-		var doc *content.ContentDocument
-		if strings.HasPrefix(filename, content.SchemeContent+":") {
-			if s.config.ContentFetcher == nil {
-				return nil, false, time.Time{}, errors.New("content API is not available")
+		var doc *session.ReadingSessionDocument
+		if strings.HasPrefix(filename, session.SchemeReadingSession+":") {
+			if s.config.ReadingSessionFetcher == nil {
+				return nil, false, time.Time{}, errors.New("reading session API is not available")
 			}
 			cloc, err := nurl.Parse(filename)
 			if err != nil {
-				return nil, false, time.Time{}, errors.Wrap(err, "failed parsing content URL")
+				return nil, false, time.Time{}, errors.Wrap(err, "failed parsing reading session URL")
 			}
-			// Example: content:https://example.com/data.json --> https://example.com/data.json
+			// Example: session:https://example.com/data.json --> https://example.com/data.json
 			if cloc.Opaque == "" {
-				return nil, false, time.Time{}, errors.New("content URL is missing data")
+				return nil, false, time.Time{}, errors.New("reading session URL is missing data")
 			}
 
-			doc, err = s.config.ContentFetcher.Fetch(ctx, cloc.Opaque)
+			doc, err = s.config.ReadingSessionFetcher.Fetch(ctx, cloc.Opaque)
 			if err != nil {
-				return nil, false, time.Time{}, errors.Wrap(err, "failed fetching content data")
+				return nil, false, time.Time{}, errors.Wrap(err, "failed fetching reading session data")
 			}
 			filename, _ = doc.PublicationURL()
 
 			if _, err := doc.Enforce(); err != nil {
 				return nil, false, time.Time{}, err
 			}
+
+			// Re-derive u from the resolved publication URL so the open logic
+			// targets the actual publication rather than the session: URL.
+			loc, err := url.URLFromString(filename)
+			if err != nil {
+				return nil, false, time.Time{}, errors.Wrap(err, "failed creating URL from publication URL")
+			}
+			u = url.BaseFile.Resolve(loc).(url.AbsoluteURL)
 		}
 
 		var pub *pub.Publication
@@ -127,28 +142,79 @@ func (s *Server) getPublication(ctx context.Context, filename string) (*pub.Publ
 
 		// Cache the publication
 		encPub := cache.EncapsulatePublication(pub, doc, remote)
-		s.lfu.Set(u.String(), encPub)
+		s.lfu.Set(cacheKey, encPub)
 
 		return encPub.Publication, remote, encPub.CachedAt, nil
 	}
 	cp := dat.(*cache.CachedPublication)
 
-	if cp.Content.Rights != nil {
-		refresh, err := cp.Content.Rights.Enforce()
+	if cp.Session.Rights != nil {
+		bap, ok := s.config.Auth.(auth.BondingAuthProvider)
+		if ok {
+			bd, ok := ctx.Value(auth.BondingRecordContextKey).(auth.BondingData)
+			if !ok {
+				return nil, false, time.Time{}, errors.New("missing bonding data in context for bonding auth provider")
+			}
+			deviceCount := cp.Session.Rights.DeviceCount(bap.MaxDevices())
+			if deviceCount > 0 {
+				// Ceiling for unreasonable per-subject device counts.
+				limit := deviceCount
+				if bap.MaxBondsPerSubject() > 0 && bap.MaxBondsPerSubject() < limit {
+					limit = bap.MaxBondsPerSubject()
+				}
+
+				now := time.Now()
+				foundIdx := -1
+				for i := range bd.Bonds {
+					if bd.Bonds[i].Device == bd.Device {
+						foundIdx = i
+						break
+					}
+				}
+				if foundIdx >= 0 {
+					bd.Bonds[foundIdx].Hash = bd.Hash
+					bd.Bonds[foundIdx].UpdatedAt = now
+				} else {
+					if uint16(len(bd.Bonds)) >= limit {
+						var newestBond time.Time
+						for _, b := range bd.Bonds {
+							if b.UpdatedAt.After(newestBond) {
+								newestBond = b.UpdatedAt
+							}
+						}
+						if time.Since(newestBond) < bap.MinDeviceEvictionInterval() {
+							return nil, false, time.Time{}, errors.New("device limit exceeded for this publication")
+						}
+						bd.Evict(limit - 1)
+					}
+					bd.Bonds = append(bd.Bonds, auth.AgentBond{
+						Device:    bd.Device,
+						Hash:      bd.Hash,
+						UpdatedAt: now,
+					})
+				}
+				bap.Cache().Set(bd.Key, bd.Bonds)
+			}
+		}
+
+		refresh, err := cp.Session.Rights.Enforce()
 		if refresh {
+			if s.config.ReadingSessionFetcher == nil {
+				return nil, false, time.Time{}, errors.New("reading session API is not available")
+			}
 			cloc, err := nurl.Parse(filename)
 			if err != nil {
-				return nil, false, time.Time{}, errors.Wrap(err, "failed parsing content URL")
+				return nil, false, time.Time{}, errors.Wrap(err, "failed parsing reading session URL")
 			}
-			// Example: content:https://example.com/data.json --> https://example.com/data.json
+			// Example: session:https://example.com/data.json --> https://example.com/data.json
 			if cloc.Opaque == "" {
-				return nil, false, time.Time{}, errors.New("content URL is missing data")
+				return nil, false, time.Time{}, errors.New("reading session URL is missing data")
 			}
 
-			var doc *content.ContentDocument
-			doc, err = s.config.ContentFetcher.Fetch(ctx, cloc.Opaque)
+			var doc *session.ReadingSessionDocument
+			doc, err = s.config.ReadingSessionFetcher.Fetch(ctx, cloc.Opaque)
 			if err != nil {
-				return nil, false, time.Time{}, errors.Wrap(err, "failed fetching content data")
+				return nil, false, time.Time{}, errors.Wrap(err, "failed fetching reading session data")
 			}
 			filename, _ = doc.PublicationURL()
 
@@ -157,7 +223,7 @@ func (s *Server) getPublication(ctx context.Context, filename string) (*pub.Publ
 			}
 
 			cp = cache.EncapsulatePublication(cp.Publication, doc, cp.Remote)
-			s.lfu.Set(u.String(), cp)
+			s.lfu.Set(cacheKey, cp)
 		} else if err != nil {
 			return nil, false, time.Time{}, err
 		}
@@ -168,10 +234,9 @@ func (s *Server) getPublication(ctx context.Context, filename string) (*pub.Publ
 
 func (s *Server) getManifest(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
-	filename := req.Context().Value(ContextPathKey).(string)
 
 	// Load the publication
-	publication, _, cachedAt, err := s.getPublication(req.Context(), filename)
+	publication, _, cachedAt, err := s.getPublication(req.Context())
 	if err != nil {
 		slog.Error("failed opening publication", "error", err)
 		w.WriteHeader(500)
@@ -237,10 +302,9 @@ func (s *Server) getManifest(w http.ResponseWriter, req *http.Request) {
 
 func (s *Server) getAsset(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	filename := r.Context().Value(ContextPathKey).(string)
 
 	// Load the publication
-	publication, remote, _, err := s.getPublication(r.Context(), filename)
+	publication, remote, _, err := s.getPublication(r.Context())
 	if err != nil {
 		slog.Error("failed opening publication", "error", err)
 		w.WriteHeader(500)
