@@ -45,7 +45,7 @@ func safeSocketControl(network string, address string, conn syscall.RawConn) err
 const ClientKeepAliveTimeout = 90  // Imgproxy default
 var Workers = runtime.NumCPU() * 2 // Imgproxy default
 
-func NewHTTPClient(auth string, whitelist []*url.URL, bypassSafeSocketControl bool) (*http.Client, error) {
+func NewHTTPClient(authMap map[string]string, whitelist []*url.URL, bypassSafeSocketControl bool) (*http.Client, error) {
 	safeDialer := &net.Dialer{
 		Timeout:   30 * time.Second,
 		KeepAlive: 30 * time.Second,
@@ -71,7 +71,7 @@ func NewHTTPClient(auth string, whitelist []*url.URL, bypassSafeSocketControl bo
 	}
 
 	return &http.Client{
-		Transport: newAuthenticatedRoundTripper(auth, whitelist, safeTransport),
+		Transport: newAuthenticatedRoundTripper(authMap, whitelist, safeTransport),
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if len(via) >= 10 {
 				// Default Go behavior

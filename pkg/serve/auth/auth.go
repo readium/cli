@@ -1,5 +1,15 @@
 package auth
 
+import (
+	"net/http"
+)
+
+type AuthError struct {
+	StatusCode   int
+	Err          error
+	RedirectPath string
+}
+
 type AuthProvider interface {
-	Validate(token string) (string, int, error)
+	Validate(w http.ResponseWriter, r *http.Request, token string) (*http.Request, *AuthError)
 }
