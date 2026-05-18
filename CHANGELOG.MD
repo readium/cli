@@ -4,7 +4,23 @@ All notable changes to this project will be documented in this file.
 
 **Warning:** Features marked as *alpha* may change or be removed in a future release without notice. Use with caution.
 
-## [0.6.6] - 2025-03-09
+## [0.7.0] - 2026-05-18
+
+### Changed
+
+- Updated dependencies
+- HTTP requests made by `serve` now have a better, more descriptive `User-Agent` header
+
+### Added
+
+- A new `session` URL scheme has been added to `serve`, which allows for retrieval of a Reading Session API document. This is an experimental way of having a JSON object located at a remote URL (http, https) that returns the ebook's real location URL, as well as metadata to override, and rights (limitations) on the session. If you're trying to enforce restrictions seriously, you should use this together with one of the bonding modes below
+- Two new modes have been added to `serve`, `jwt-bonding` and `jwks-bonding`. The difference between the two mirrots the `jwt` and `jwks` modes. Bonding (which must be combined with the Reading Session API) lets you more strongly tie a reading session (reader URL) to a web browser, through the use of a device cookie and a bonding JWT. Be sure to check out the new params available to tweak settings for sessions/bonding
+- The webserver now strives to return [problem details in JSON](https://datatracker.ietf.org/doc/html/rfc9457), which should helps clients better understand what the cause of an error is
+- A CORS setting (`--cors-allowed-origin`) is available for `serve`, for setups requiring CORS
+- An HTTP authorization setting (`--http-host-authorization`) has been added, which will let you add the `authorization` header to specific hosts you're making requests to. This should help authenticate the reader for the Reading Session API endpoint (or whatever other needs you have like auth for your ebook storage domain)
+- H2C (plaintext http2) support has been added to the webserver, for reverse proxies that support it
+
+## [0.6.6] - 2026-03-09
 
 ### Fixed
 
@@ -14,7 +30,7 @@ All notable changes to this project will be documented in this file.
 
 - Now, OPUS files has the mimetype `audio/opus` in manifests, but remain `audio/ogg; codecs=opus` in webserver responses for better compatibility
 
-## [0.6.5] - 2025-02-28
+## [0.6.5] - 2026-02-28
 
 ### Fixed
 
