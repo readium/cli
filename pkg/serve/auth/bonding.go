@@ -211,10 +211,9 @@ func (b *bondingCore) validateBondingJWT(w http.ResponseWriter, r *http.Request,
 		Bonds:  bonds,
 	}
 
-	r, err = http.NewRequestWithContext(context.WithValue(context.WithValue(r.Context(), BondingRecordContextKey, bondData), ContextPathKey, subject), "GET", subject, nil)
-	if err != nil {
-		return nil, &AuthError{StatusCode: http.StatusInternalServerError, Err: errors.Wrap(err, "failed creating new request for bonded session")}
-	}
+	ctx := context.WithValue(r.Context(), BondingRecordContextKey, bondData)
+	ctx = context.WithValue(ctx, ContextPathKey, subject)
+	r = r.WithContext(ctx)
 	return r, nil
 }
 
