@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 **Warning:** Features marked as *alpha* may change or be removed in a future release without notice. Use with caution.
 
+## [0.8.0] - 2026-06-06
+
+### Added
+
+- Added the `--audio-embedded-chapters`, `--audio-parsing-concurrency`, `--audio-parsing-cache-block-size` flags for more control over audiobook parsing with regards to speed/latency/memory tradeoffs
+
+### Changed
+
+- The go-toolkit has been updated to v0.14.0. This adds improved audiobook parsing. For a more detailed list of changed, refer to the [go-toolkit's changelog](https://github.com/readium/go-toolkit/blob/develop/CHANGELOG.md#0140---2026-06-06). While best effort is made to minimize the latency when reading audiobooks from remote sources, there can still be an excess of reads that are necessary to fully parse metadata. The new settings provide a way to make tradeoffs depending on the situation
+
 ## [0.7.1] - 2026-05-18
 
 ### Fixed

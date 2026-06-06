@@ -27,6 +27,12 @@ import (
 	"github.com/readium/go-toolkit/pkg/asset"
 	"github.com/readium/go-toolkit/pkg/fetcher"
 	"github.com/readium/go-toolkit/pkg/manifest"
+	"github.com/readium/go-toolkit/pkg/parser"
+	"github.com/readium/go-toolkit/pkg/parser/audio"
+	"github.com/readium/go-toolkit/pkg/parser/epub"
+	"github.com/readium/go-toolkit/pkg/parser/image"
+	"github.com/readium/go-toolkit/pkg/parser/pdf"
+	"github.com/readium/go-toolkit/pkg/parser/webpub"
 	"github.com/readium/go-toolkit/pkg/pub"
 	"github.com/readium/go-toolkit/pkg/streamer"
 	"github.com/readium/go-toolkit/pkg/util/url"
@@ -106,10 +112,25 @@ func (s *Server) getPublication(ctx context.Context) (*cache.CachedPublication, 
 		var pub *pub.Publication
 		var remote bool
 		var err error
+		audioOpts := []audio.Option{
+			audio.WithConcurrency(int(s.config.AudioParsingConcurrency)),
+			audio.WithCacheBlockSize(int(s.config.AudioParsingCacheBlockSize)),
+		}
+		if !s.config.AudioEmbeddedChapters {
+			audioOpts = append(audioOpts, audio.WithoutEmbeddedChapters())
+		}
 		config := streamer.Config{
-			InferA11yMetadata: s.config.InferA11yMetadata,
-			HttpClient:        s.remote.HTTP,
-			AddServiceLinks:   true,
+			InferA11yMetadata:    s.config.InferA11yMetadata,
+			HttpClient:           s.remote.HTTP,
+			AddServiceLinks:      true,
+			IgnoreDefaultParsers: true,
+			Parsers: []parser.PublicationParser{
+				epub.NewParser(nil),
+				pdf.NewParser(),
+				webpub.NewParser(s.remote.HTTP),
+				image.NewParser(),
+				audio.NewRichParser(audioOpts...),
+			},
 		}
 		if doc != nil {
 			config.OnCreatePublication = doc.Injector()
