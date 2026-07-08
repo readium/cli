@@ -27,6 +27,12 @@ import (
 	"github.com/readium/go-toolkit/pkg/asset"
 	"github.com/readium/go-toolkit/pkg/fetcher"
 	"github.com/readium/go-toolkit/pkg/manifest"
+	"github.com/readium/go-toolkit/pkg/parser"
+	"github.com/readium/go-toolkit/pkg/parser/audio"
+	"github.com/readium/go-toolkit/pkg/parser/epub"
+	"github.com/readium/go-toolkit/pkg/parser/image"
+	"github.com/readium/go-toolkit/pkg/parser/pdf"
+	"github.com/readium/go-toolkit/pkg/parser/webpub"
 	"github.com/readium/go-toolkit/pkg/pub"
 	"github.com/readium/go-toolkit/pkg/streamer"
 	"github.com/readium/go-toolkit/pkg/util/url"
@@ -106,10 +112,33 @@ func (s *Server) getPublication(ctx context.Context) (*cache.CachedPublication, 
 		var pub *pub.Publication
 		var remote bool
 		var err error
+		audioOpts := []audio.Option{
+			audio.WithConcurrency(int(s.config.AudioParsingConcurrency)),
+			audio.WithCacheBlockSize(int(s.config.AudioParsingCacheBlockSize)),
+		}
+		if !s.config.AudioEmbeddedChapters {
+			audioOpts = append(audioOpts, audio.WithoutEmbeddedChapters())
+		}
+		if s.config.AudioParsingCacheRetain && !u.IsFile() {
+			// Keep the blocks fetched while probing remote audiobooks attached
+			// to the cached publication: browsers request the container header
+			// and every chapter sample before starting playback, and those
+			// ranges are then served from memory instead of new remote
+			// requests. Local files don't need it — serving them is cheap.
+			audioOpts = append(audioOpts, audio.WithRetainedCache())
+		}
 		config := streamer.Config{
-			InferA11yMetadata: s.config.InferA11yMetadata,
-			HttpClient:        s.remote.HTTP,
-			AddServiceLinks:   true,
+			InferA11yMetadata:    s.config.InferA11yMetadata,
+			HttpClient:           s.remote.HTTP,
+			AddServiceLinks:      true,
+			IgnoreDefaultParsers: true,
+			Parsers: []parser.PublicationParser{
+				epub.NewParser(nil),
+				pdf.NewParser(),
+				webpub.NewParser(s.remote.HTTP),
+				image.NewParser(),
+				audio.NewRichParser(audioOpts...),
+			},
 		}
 		if doc != nil {
 			config.OnCreatePublication = doc.Injector()
@@ -441,12 +470,17 @@ func (s *Server) getAsset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cres, ok := res.(fetcher.CompressedResource)
+	es, esok := res.(fetcher.EfficientStreamer)
 	normalResponse := func() {
 		if r.Method == http.MethodHead {
 			return
 		}
 
-		if remote {
+		if remote && (!esok || !es.HasEfficientStream()) {
+			// The resource cannot stream the range efficiently from a remote
+			// source (e.g. a deflate-compressed archive entry, whose ranged
+			// Stream decompresses from the entry start on every call), so
+			// read the whole range with a single call instead.
 			var bin []byte
 			bin, rerr = res.Read(r.Context(), start, end)
 			if rerr == nil {
@@ -456,6 +490,11 @@ func (s *Server) getAsset(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		} else {
+			// Local resources and efficient streamers (bare remote files,
+			// stored entries in remote archives) retrieve only the requested
+			// range and pipe it through: the first byte reaches the client as
+			// soon as it is available, memory use is bounded, and a client
+			// abort cancels the remote transfer via the request context.
 			_, rerr = res.Stream(r.Context(), w, start, end)
 		}
 	}
@@ -515,8 +554,9 @@ func (s *Server) getAsset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if rerr != nil {
-		if errors.Is(rerr.Cause, syscall.EPIPE) || errors.Is(rerr.Cause, syscall.ECONNRESET) {
-			// Ignore client errors
+		if errors.Is(rerr.Cause, syscall.EPIPE) || errors.Is(rerr.Cause, syscall.ECONNRESET) || errors.Is(rerr.Cause, context.Canceled) {
+			// Ignore client aborts: the write fails with a broken pipe, or the
+			// canceled request context interrupts the remote read mid-stream.
 			return
 		}
 

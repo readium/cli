@@ -49,6 +49,12 @@ type ServerConfig struct {
 	Auth                  auth.AuthProvider
 	ReadingSessionFetcher session.Fetcher
 	CORSAllowedOrigins    []string
+
+	// Audio parsing
+	AudioEmbeddedChapters      bool   // Whether to extract chapters embedded in audio files
+	AudioParsingConcurrency    uint8  // Number of audio files to probe concurrently (0 = library default)
+	AudioParsingCacheBlockSize uint32 // Read-cache block size in bytes while probing audio (0 = library default)
+	AudioParsingCacheRetain    bool   // Keep probe-cache blocks of remote audiobooks in memory to serve their byte ranges without remote requests
 }
 
 type Server struct {
