@@ -84,6 +84,7 @@ var corsAllowedOriginsFlag []string
 var audioEmbeddedChaptersFlag bool
 var audioParsingConcurrency uint8
 var audioParsingCacheBlockSize uint32
+var audioParsingCacheRetain bool
 
 var serveCmd = &cobra.Command{
 	Use:   "serve",
@@ -382,6 +383,7 @@ access to publications and prevent abuse or unauthorized access.`,
 			AudioEmbeddedChapters:      audioEmbeddedChaptersFlag,
 			AudioParsingConcurrency:    audioParsingConcurrency,
 			AudioParsingCacheBlockSize: audioParsingCacheBlockSize,
+			AudioParsingCacheRetain:    audioParsingCacheRetain,
 		}, remote)
 
 		bind := fmt.Sprintf("%s:%d", bindAddressFlag, bindPortFlag)
@@ -448,8 +450,9 @@ func init() {
 	serveCmd.Flags().Uint32Var(&remoteArchiveCacheAll, "remote-archive-cache-all", 1024*1024, "Archives this size or less (in bytes) will be cached in full")
 
 	serveCmd.Flags().BoolVar(&audioEmbeddedChaptersFlag, "audio-embedded-chapters", true, "Whether to parse chapters embedded in audio files, in particular M4B. Will cause more range reads to be made on audio files, increasing load time")
-	serveCmd.Flags().Uint8Var(&audioParsingConcurrency, "audio-parsing-concurrency", 8, "Number of audio files to parse concurrently when retrieving metadata and chapters")
+	serveCmd.Flags().Uint8Var(&audioParsingConcurrency, "audio-parsing-concurrency", 8, "Number of audio files to parse concurrently when retrieving metadata and chapters. Also bounds the parallel range reads made within a single file (e.g. fetching scattered chapter titles)")
 	serveCmd.Flags().Uint32Var(&audioParsingCacheBlockSize, "audio-parsing-cache-block-size", 256<<10, "Block size in bytes for the read cache used when parsing audio files for metadata and chapters. Larger blocks may reduce the number of range requests but increase data transfer for scattered reads")
+	serveCmd.Flags().BoolVar(&audioParsingCacheRetain, "audio-parsing-cache-retain", true, "Keep the data fetched while parsing remote audiobooks in memory and serve matching byte ranges from it. Browsers request exactly these ranges (container header, embedded chapters) before starting playback, so this significantly reduces the time to first audio. Disable to save memory (roughly one cache block per chapter plus the file headers)")
 
 	serveCmd.Flags().StringSliceVar(&corsAllowedOriginsFlag, "cors-allowed-origin", []string{"*"}, "Allowed origins for CORS requests. Repeat the flag or comma-separate to allow multiple origins (e.g. 'https://reader.example.com'). Use '*' to allow any origin")
 }
