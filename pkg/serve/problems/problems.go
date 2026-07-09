@@ -3,6 +3,7 @@
 package problems
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -14,6 +15,28 @@ import (
 	"github.com/readium/go-toolkit/pkg/fetcher"
 )
 
+// IsClientDisconnect reports whether an error from serving a response means
+// the client went away mid-request rather than anything failing server-side.
+// Browsers routinely abort in-flight (range) requests while probing and
+// seeking media, so these are expected noise and safe not to log.
+//
+// ctx must be the request's own context. The server cancels it when the
+// client goes away — for HTTP/2 aborts, before it fails the handler's Write
+// (net/http's closeStream cancels the stream context before unblocking
+// writes) — which is the only reliable way to recognize those: the errors
+// themselves ("http2: stream closed", "client disconnected") are unexported
+// sentinels out of errors.Is's reach. The errno checks cover HTTP/1 writes
+// that fail before the server's background read notices the disconnect and
+// cancels the context.
+func IsClientDisconnect(ctx context.Context, err error) bool {
+	if ctx != nil && ctx.Err() != nil {
+		return true
+	}
+	return errors.Is(err, syscall.EPIPE) ||
+		errors.Is(err, syscall.ECONNRESET) ||
+		errors.Is(err, context.Canceled)
+}
+
 // Write writes err to w as an application/problem+json response. If err already
 // contains a *problem.Problem in its tree it's used directly; otherwise From
 // builds one. The library's internal logger is suppressed — callers should log
@@ -22,13 +45,13 @@ import (
 // If writing the response body itself fails (e.g. client disconnected
 // mid-write), the write error is logged here — by that point the status line
 // and headers are already on the wire, so there is no way to recover. Client
-// disconnect errors (EPIPE/ECONNRESET) are ignored as expected noise.
+// disconnect errors (see IsClientDisconnect) are ignored as expected noise.
 func Write(err error, w http.ResponseWriter, r *http.Request) {
 	werr := problem.WriteError(err, w, r, From, problem.WriteOptions{LogDisabled: true})
 	if werr == nil {
 		return
 	}
-	if errors.Is(werr, syscall.EPIPE) || errors.Is(werr, syscall.ECONNRESET) {
+	if IsClientDisconnect(r.Context(), werr) {
 		return
 	}
 	slog.ErrorContext(r.Context(), "failed writing problem response", "error", werr)

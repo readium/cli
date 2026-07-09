@@ -11,14 +11,12 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	nurl "net/url"
 
 	"github.com/gorilla/mux"
 	httprange "github.com/gotd/contrib/http_range"
-	"github.com/pkg/errors"
 	"github.com/readium/cli/pkg/serve/auth"
 	"github.com/readium/cli/pkg/serve/cache"
 	"github.com/readium/cli/pkg/serve/problems"
@@ -554,9 +552,10 @@ func (s *Server) getAsset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if rerr != nil {
-		if errors.Is(rerr.Cause, syscall.EPIPE) || errors.Is(rerr.Cause, syscall.ECONNRESET) || errors.Is(rerr.Cause, context.Canceled) {
-			// Ignore client aborts: the write fails with a broken pipe, or the
-			// canceled request context interrupts the remote read mid-stream.
+		if problems.IsClientDisconnect(r.Context(), rerr.Cause) {
+			// Ignore client aborts: the write fails with a broken pipe or a
+			// reset HTTP/2 stream, or the canceled request context interrupts
+			// the remote read mid-stream.
 			return
 		}
 
