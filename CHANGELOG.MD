@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 **Warning:** Features marked as *alpha* may change or be removed in a future release without notice. Use with caution.
 
+## [0.9.0]
+
+### Added
+
+- Standalone Readium Web Publication Manifests (e.g. a bare `manifest.json`, `.audiobook` or `.divina` file) can now be served. The publication's resources are resolved relative to the manifest's location, whether it lives on the local file system or on a remote source (http(s), s3, gs), and absolute HTTP(S) links in a manifest are fetched as-is. Previously, trying to open one would fail
+- Added the `--audio-parsing-cache-retain` flag (enabled by default): the data fetched while parsing a remote audiobook (the container header and embedded chapter titles) is kept in memory, and requests for those byte ranges are served from it. Browsers request exactly these ranges before starting playback of e.g. an M4B, so with a many-chapter audiobook on a remote source, playback now starts several times faster. Disable the flag to save memory (it costs roughly one cache block per chapter plus the file headers, so a few MB per audiobook). Or just use a better audio format...
+- Publications opened from a WebPub manifest now get a positions service, and a guided navigation service (MVP) when they contain HTML content
+
+### Changed
+
+- The go-toolkit has been updated to v0.15.1. Together with changes to the webserver, this dramatically reduces the latency and excess data transfer of streaming publications from remote (http(s), s3, gs) sources. For the detailed list, refer to the [go-toolkit's changelog](https://github.com/readium/go-toolkit/blob/develop/CHANGELOG.md); the highlights as they apply to the CLI:
+  - The webserver now streams remote media to the client as it arrives whenever the range can be fetched efficiently (bare files and uncompressed archive entries), instead of buffering the entire requested range in memory first. Time to first byte no longer depends on the size of the requested range, memory use is bounded, and a client disconnecting cancels the remote transfer
+  - Streaming has been optimized to unlock the ability for data transfers from a local filesystem source to the network to happen in-kernel with `sendfile`
+  - Seeking through media inside a remote archive no longer re-downloads parts of the archive over and over (in the worst case, the whole archive tail on every request), and data is fetched in far fewer, larger range requests
+  - Opening the same publication only queries the remote source for a file's size once, instead of once per request while streaming. For audiobooks in particular, this removes a remote round trip from every range request a browser makes
+  - Fixed ranged reads of S3 resources downloading the entire object
+  - Fixed a path traversal issue: a crafted link inside a publication could address content outside the publication's own location (e.g. a sibling S3 key or URL path) on the remote source it is served from
+
+### Fixed
+
+- Clients disconnecting over HTTP/2 mid-response (e.g. a browser aborting range requests while probing or seeking media, which is routine) were logged as streaming errors such as `http2: stream closed`, polluting the logs. They are now ignored like their HTTP/1 counterparts (broken pipe, connection reset)
+
 ## [0.8.0] - 2026-06-06
 
 ### Added
