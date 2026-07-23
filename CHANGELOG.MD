@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 **Warning:** Features marked as *alpha* may change or be removed in a future release without notice. Use with caution.
 
+## [0.9.1] - 2026-07-23
+
+### Changed
+
+- Docker builds use a local `mime.types` and pinned container hash for better security
+
+### Fixed
+
+- Fixed `session:` scheme URLs for the web server not passing on query parameters to the session's HTTP request. Session URLs like `session:https://example.com/data.json?t=abc` will work now
+- Hash list for manifest command is now validated
+- This has probably never shown up in the real world, but requesting the byte range `bytes=0-0` for a resource would have caused issues in the web server
+- Further confine local FS reads on Windows. The long term solution is to is os.Root or such, but that requires go-toolkit changes
+- Improved bonding reliability to deal with edge cases
+- Improved open publication cache logic to deal with rare edge cases
+
 ## [0.9.0] - 2026-07-09
 
 ### Added
