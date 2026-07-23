@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -179,7 +178,7 @@ access to publications and prevent abuse or unauthorized access.`,
 			}
 			cfg, err := config.LoadDefaultConfig(ctx, options...)
 			if err != nil {
-				log.Fatal(err)
+				return fmt.Errorf("failed loading AWS config: %w", err)
 			}
 			_, err = cfg.Credentials.Retrieve(ctx)
 			if err == nil {

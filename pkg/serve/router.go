@@ -57,7 +57,12 @@ func (s *Server) Routes() *mux.Router {
 				return
 			}
 			if len(aerr.RedirectPath) > 0 {
-				ru, _ := r.Get("manifest").URLPath("path", aerr.RedirectPath)
+				ru, err := r.Get("manifest").URLPath("path", aerr.RedirectPath)
+				if err != nil {
+					slog.ErrorContext(req.Context(), "failed building redirect URL", "error", err)
+					problems.Write(problems.Internal("failed building redirect URL", err), w, req)
+					return
+				}
 				http.Redirect(w, req, ru.String(), aerr.StatusCode)
 				return
 			}

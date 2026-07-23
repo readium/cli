@@ -105,12 +105,12 @@ Examples:
 
 		// Images in directory to ignore for accessibility inference
 		if inferIgnoreImageDirectoryFlag != "" {
-			ignoreableImageHashAlgorithms := make([]manifest.HashAlgorithm, len(hash))
 			if len(hash) == 0 {
 				return fmt.Errorf("no hash algorithms provided for hashing images in ignored image directory")
 			}
-			for i, h := range hash {
-				ignoreableImageHashAlgorithms[i] = manifest.HashAlgorithm(h)
+			ignoreableImageHashAlgorithms, err := parseHashAlgorithms(hash)
+			if err != nil {
+				return err
 			}
 
 			entries, err := os.ReadDir(inferIgnoreImageDirectoryFlag)
@@ -175,9 +175,9 @@ Examples:
 		}
 
 		if inspectImagesFlag {
-			hashAlgorithms := make([]manifest.HashAlgorithm, len(hash))
-			for i, h := range hash {
-				hashAlgorithms[i] = manifest.HashAlgorithm(h)
+			hashAlgorithms, err := parseHashAlgorithms(hash)
+			if err != nil {
+				return err
 			}
 			inspector := &helpers.ImageInspector{
 				Algorithms: hashAlgorithms,
@@ -206,8 +206,23 @@ Examples:
 		}
 
 		fmt.Println(string(jsonBytes))
-		return err
+		return nil
 	},
+}
+
+// Validate algorithms
+func parseHashAlgorithms(names []string) ([]manifest.HashAlgorithm, error) {
+	algorithms := make([]manifest.HashAlgorithm, len(names))
+	for i, h := range names {
+		switch a := manifest.HashAlgorithm(strings.ToLower(h)); a {
+		// Algos accepted by image inspector
+		case manifest.HashAlgorithmSHA256, manifest.HashAlgorithmMD5, manifest.HashAlgorithmPhashDCT, "https://blurha.sh":
+			algorithms[i] = a
+		default:
+			return nil, fmt.Errorf("unsupported hash algorithm: %s", h)
+		}
+	}
+	return algorithms, nil
 }
 
 func init() {

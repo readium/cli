@@ -41,17 +41,16 @@ type BondingData struct {
 	Hash   [32]byte
 	Device uuid.UUID
 	Key    string
-	Bonds  []AgentBond
 }
 
-func (b *BondingData) Evict(keep uint16) {
-	if uint16(len(b.Bonds)) <= keep {
-		return
+func EvictBonds(bonds []AgentBond, keep uint16) []AgentBond {
+	if uint16(len(bonds)) <= keep {
+		return bonds
 	}
-	slices.SortFunc(b.Bonds, func(x, y AgentBond) int {
+	slices.SortFunc(bonds, func(x, y AgentBond) int {
 		return y.UpdatedAt.Compare(x.UpdatedAt)
 	})
-	b.Bonds = b.Bonds[:keep]
+	return bonds[:keep]
 }
 
 const bondingJwtAudience = "bonding"
@@ -82,6 +81,7 @@ type bondingCore struct {
 	hasherPool                sync.Pool
 	bondingParser             *jwt.Parser
 	cache                     *otter.Cache[string, []AgentBond]
+	jtiCache                  *otter.Cache[string, struct{}]
 	defaultBondingMaxDevices  uint16
 	maxBondsPerSubject        uint16
 	minDeviceEvictionInterval time.Duration
@@ -201,14 +201,13 @@ func (b *bondingCore) validateBondingJWT(w http.ResponseWriter, r *http.Request,
 
 	b.setCookie(w, "device", deviceID.String(), time.Hour*24*90)
 
-	// Existing bonds for this subject (empty for unlimited publications,
-	// since api.go never writes them in that case).
-	bonds, _ := b.cache.GetIfPresent(subject)
+	// The subject's current bonds are read inside an atomic cache compute in
+	// api.go's enforceBonding, not snapshotted here: a snapshot would make the
+	// limit check a lost-update race across concurrent requests.
 	bondData := BondingData{
 		Key:    subject,
 		Hash:   curAgent,
 		Device: deviceID,
-		Bonds:  bonds,
 	}
 
 	ctx := context.WithValue(r.Context(), BondingRecordContextKey, bondData)
@@ -219,14 +218,16 @@ func (b *bondingCore) validateBondingJWT(w http.ResponseWriter, r *http.Request,
 
 // checkAndStoreJTI enforces single-use semantics for fresh CLI JWTs that
 // carry a JTI claim. Tokens without a JTI are allowed through unchanged.
+// The replay store lives in its own cache so JTI churn cannot evict bond
+// records (which would reset a subject's device count), and SetIfAbsent
+// makes the check-and-store atomic across concurrent requests.
 func (b *bondingCore) checkAndStoreJTI(jti string) *AuthError {
 	if jti == "" {
 		return nil
 	}
-	if _, ok := b.cache.GetIfPresent("jti:" + jti); ok {
+	if _, stored := b.jtiCache.SetIfAbsent(jti, struct{}{}); !stored {
 		return &AuthError{StatusCode: http.StatusBadRequest, Err: errors.New("JWT token with jti claim has already been used")}
 	}
-	b.cache.Set("jti:"+jti, []AgentBond{})
 	return nil
 }
 
@@ -285,6 +286,14 @@ func newBondingCore(bondingSecret []byte, defaultMaxDevices uint16, maxBondsPerS
 	if cookiePrefix == "" {
 		cookiePrefix = "bonding"
 	}
+	for _, c := range cookiePrefix {
+		// The prefix is used both in cookie names (RFC 6265 tokens) and in the
+		// bonding redirect path, where a "/" or other special character would
+		// not match the route's {path} pattern and break every exchange.
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-' || c == '_') {
+			return nil, errors.Errorf("cookie prefix contains unsupported character %q, use only letters, digits, '-' and '_'", c)
+		}
+	}
 	if len(cookieSubfolder) > 0 {
 		cookieSubfolder = strings.TrimLeft(cookieSubfolder, "/")
 	}
@@ -306,6 +315,10 @@ func newBondingCore(bondingSecret []byte, defaultMaxDevices uint16, maxBondsPerS
 		bondingSecret: bondingSecret,
 		bondingParser: jwt.NewParser(jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()})),
 		cache: otter.Must(&otter.Options[string, []AgentBond]{
+			MaximumSize:     int(maxCacheSize),
+			InitialCapacity: 100,
+		}),
+		jtiCache: otter.Must(&otter.Options[string, struct{}]{
 			MaximumSize:     int(maxCacheSize),
 			InitialCapacity: 100,
 		}),

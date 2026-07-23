@@ -6,8 +6,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -16,6 +20,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// TestMain discards slog output: handlers log every failed publication open,
+// and the confinement/error-path tests trigger those on purpose.
+func TestMain(m *testing.M) {
+	slog.SetDefault(slog.New(slog.DiscardHandler))
+	os.Exit(m.Run())
+}
 
 // originRequest records one request that reached the fake remote origin.
 type originRequest struct {
@@ -334,5 +345,59 @@ func TestServeRemoteArchiveStoredEntryRanged(t *testing.T) {
 	require.Equal(t, big[:2097152], rec.Body.Bytes())
 	for _, r := range o.snapshot("/pub/book.cbz") {
 		assert.False(t, strings.HasSuffix(r.rng, "-"), "entry header should be cached, got open-ended request %+v", r)
+	}
+}
+
+// newFileTestRouter serves publications from a local directory with the file
+// scheme enabled and the default (base64url) auth.
+func newFileTestRouter(t *testing.T, dir string) http.Handler {
+	t.Helper()
+	s := NewServer(ServerConfig{}, Remote{LocalDirectory: dir})
+	return s.Routes()
+}
+
+func fileToken(path string) string {
+	return base64.RawURLEncoding.EncodeToString([]byte(path))
+}
+
+// TestServeLocalFileConfinement checks that requests for the file scheme cannot
+// escape --file-directory, including via a symlink inside the directory that
+// points outside it — the case a purely lexical containment check misses and
+// os.Root rejects.
+func TestServeLocalFileConfinement(t *testing.T) {
+	base := t.TempDir()
+	inside := filepath.Join(base, "inside")
+	outside := filepath.Join(base, "outside")
+	require.NoError(t, os.MkdirAll(inside, 0o755))
+	require.NoError(t, os.MkdirAll(outside, 0o755))
+
+	pub := buildCBZ(t, pattern(4096))
+	require.NoError(t, os.WriteFile(filepath.Join(inside, "book.cbz"), pub, 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(outside, "secret.cbz"), pub, 0o644))
+
+	router := newFileTestRouter(t, inside)
+
+	get := func(token string) int {
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/webpub/"+token+"/manifest.json", nil))
+		return rec.Code
+	}
+
+	// Positive control: a real publication inside the directory is served.
+	require.Equal(t, http.StatusOK, get(fileToken("book.cbz")),
+		"a publication inside the file directory must be served")
+
+	// Parent-directory traversal must not reach the sibling publication.
+	assert.Equal(t, http.StatusNotFound, get(fileToken("../outside/secret.cbz")),
+		"a ../ traversal must not escape the file directory")
+
+	// A symlink inside the directory that points outside it must not be
+	// followed out of the directory. This is the escape a lexical prefix check
+	// would allow and os.Root blocks.
+	if runtime.GOOS != "windows" {
+		link := filepath.Join(inside, "escape.cbz")
+		require.NoError(t, os.Symlink(filepath.Join(outside, "secret.cbz"), link))
+		assert.Equal(t, http.StatusNotFound, get(fileToken("escape.cbz")),
+			"a symlink escaping the file directory must not be served")
 	}
 }
