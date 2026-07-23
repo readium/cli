@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"path"
@@ -36,6 +37,22 @@ import (
 	"github.com/readium/go-toolkit/pkg/util/url"
 	"github.com/zeebo/xxh3"
 )
+
+func readingSessionDataURL(sessionURL string) (string, error) {
+	cloc, err := nurl.Parse(sessionURL)
+	if err != nil {
+		return "", err
+	}
+	// Example: session:https://example.com/data.json?t=abc --> https://example.com/data.json?t=abc
+	if cloc.Opaque == "" {
+		return "", errors.New("reading session URL is missing data")
+	}
+	target := cloc.Opaque
+	if cloc.ForceQuery || cloc.RawQuery != "" {
+		target += "?" + cloc.RawQuery
+	}
+	return target, nil
+}
 
 func (s *Server) getPublication(ctx context.Context) (*cache.CachedPublication, error) {
 	filename, ok := ctx.Value(auth.ContextPathKey).(string)
@@ -74,18 +91,13 @@ func (s *Server) getPublication(ctx context.Context) (*cache.CachedPublication, 
 				return nil, problems.NotImplemented.Build().
 					Detail("reading session API is not available").Problem()
 			}
-			cloc, err := nurl.Parse(filename)
+			target, err := readingSessionDataURL(filename)
 			if err != nil {
 				return nil, problems.BadRequest.Build().Wrap(err).
-					Detail("failed parsing reading session URL").Problem()
-			}
-			// Example: session:https://example.com/data.json --> https://example.com/data.json
-			if cloc.Opaque == "" {
-				return nil, problems.BadRequest.Build().
-					Detail("reading session URL is missing data").Problem()
+					Detail("invalid reading session URL").Problem()
 			}
 
-			doc, err = s.config.ReadingSessionFetcher.Fetch(ctx, cloc.Opaque)
+			doc, err = s.config.ReadingSessionFetcher.Fetch(ctx, target)
 			if err != nil {
 				return nil, problems.BadGateway.Build().Wrap(err).
 					Detail("failed fetching reading session data").Problem()
@@ -230,17 +242,13 @@ func (s *Server) getPublication(ctx context.Context) (*cache.CachedPublication, 
 				return nil, problems.NotImplemented.Build().
 					Detail("reading session API is not available").Problem()
 			}
-			cloc, err := nurl.Parse(filename)
+			target, err := readingSessionDataURL(filename)
 			if err != nil {
-				return nil, problems.Internal("failed parsing reading session URL", err)
-			}
-			// Example: session:https://example.com/data.json --> https://example.com/data.json
-			if cloc.Opaque == "" {
-				return nil, problems.Internal("reading session URL is missing data", nil)
+				return nil, problems.Internal("invalid reading session URL", err)
 			}
 
 			var doc *session.ReadingSessionDocument
-			doc, err = s.config.ReadingSessionFetcher.Fetch(ctx, cloc.Opaque)
+			doc, err = s.config.ReadingSessionFetcher.Fetch(ctx, target)
 			if err != nil {
 				return nil, problems.BadGateway.Build().Wrap(err).
 					Detail("failed fetching reading session data").Problem()
