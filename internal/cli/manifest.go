@@ -10,11 +10,14 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/readium/cli/pkg/helpers"
+	"github.com/readium/cli/pkg/inspector"
 	"github.com/readium/go-toolkit/pkg/analyzer"
 	"github.com/readium/go-toolkit/pkg/asset"
 	"github.com/readium/go-toolkit/pkg/fetcher"
+	"github.com/readium/go-toolkit/pkg/guidednavigation/converter"
 	"github.com/readium/go-toolkit/pkg/manifest"
 	"github.com/readium/go-toolkit/pkg/mediatype"
+	"github.com/readium/go-toolkit/pkg/pub"
 	"github.com/readium/go-toolkit/pkg/streamer"
 	"github.com/readium/go-toolkit/pkg/util/url"
 	"github.com/spf13/cobra"
@@ -40,6 +43,9 @@ var hash []string
 
 // Inspect images in the manifest. Their links will be enhanced with size, width and height, and hashes
 var inspectImagesFlag bool
+
+// When inspecting the manifest, use the (X)HTML of documents to enhance accuracy of metadata
+var inspectHtmlFlag bool
 
 var manifestCmd = &cobra.Command{
 	Use:   "manifest <pub-path>",
@@ -162,11 +168,23 @@ Examples:
 			}
 		}
 
-		pub, err := streamer.New(streamer.Config{
+		config := streamer.Config{
 			InferA11yMetadata:  streamer.InferA11yMetadata(inferA11yFlag),
 			InferPageCount:     inferPageCountFlag,
 			InferIgnoredImages: ignoreImagesHashes,
-		}).Open(
+		}
+		if inspectHtmlFlag {
+			// HTML inspection reads the publication's guided navigation documents.
+			// Generate them with textref locators, so inspected objects can be
+			// located in their documents.
+			config.OnCreatePublication = func(b *pub.Builder) error {
+				factory := pub.HTMLGuidedNavigationServiceFactory(converter.WithTextRefLocators())
+				b.ServicesBuilder.Set(pub.GuidedNavigationService_Name, &factory)
+				return nil
+			}
+		}
+
+		publication, err := streamer.New(config).Open(
 			context.TODO(),
 			asset.File(path), "",
 		)
@@ -174,32 +192,43 @@ Examples:
 			return fmt.Errorf("failed opening %s: %w", path, err)
 		}
 
+		var inspectors []inspector.Inspector
 		if inspectImagesFlag {
 			hashAlgorithms, err := parseHashAlgorithms(hash)
 			if err != nil {
 				return err
 			}
-			inspector := &helpers.ImageInspector{
+			inspector := &inspector.Image{
 				Algorithms: hashAlgorithms,
-				Filesystem: fetcher.ToFS(context.TODO(), pub.Fetcher),
+				Filesystem: fetcher.ToFS(context.TODO(), publication.Fetcher),
+			}
+			inspectors = append(inspectors, inspector)
+		}
+
+		if inspectHtmlFlag {
+			service, ok := publication.FindService(pub.GuidedNavigationService_Name).(pub.GuidedNavigationService)
+			if !ok {
+				return fmt.Errorf("publication does not have a %s service, which is required for HTML inspection", pub.GuidedNavigationService_Name)
 			}
 
-			// Inspect publication files and overwrite the links
-			pub.Manifest.ReadingOrder = pub.Manifest.ReadingOrder.Copy(inspector)
-			if inspector.Error() != nil {
-				return fmt.Errorf("failed inspecting images in reading order: %w", inspector.Error())
-			}
-			pub.Manifest.Resources = pub.Manifest.Resources.Copy(inspector)
-			if inspector.Error() != nil {
-				return fmt.Errorf("failed inspecting images in resources: %w", inspector.Error())
+			inspectors = append(inspectors, &inspector.ImageUsage{
+				GuidedNavigationService: service,
+			})
+		}
+
+		if len(inspectors) > 0 {
+			inspection := inspector.CreateInspection(inspectors)
+			publication.Manifest.Copy(inspection)
+			if inspection.Error() != nil {
+				return errors.Wrap(inspection.Error(), "failed inspecting manifest")
 			}
 		}
 
 		var jsonBytes []byte
 		if indentFlag == "" {
-			jsonBytes, err = json.Marshal(pub.Manifest)
+			jsonBytes, err = json.Marshal(publication.Manifest)
 		} else {
-			jsonBytes, err = json.MarshalIndent(pub.Manifest, "", indentFlag)
+			jsonBytes, err = json.MarshalIndent(publication.Manifest, "", indentFlag)
 		}
 		if err != nil {
 			return fmt.Errorf("failed rendering JSON for %s: %w", path, err)
@@ -234,4 +263,5 @@ func init() {
 	manifestCmd.Flags().BoolVar(&inspectImagesFlag, "inspect-images", false, "Inspect images in the manifest. Their links will be enhanced with size, width and height, and hashes")
 	manifestCmd.Flags().StringSliceVar(&inferIgnoreImageHashesFlag, "infer-a11y-ignore-image-hashes", nil, "Ignore the given hashes when inferring textual accessibility. Hashes are in the format <algorithm>:<base64 value>, separated by commas.")
 	manifestCmd.Flags().StringVar(&inferIgnoreImageDirectoryFlag, "infer-a11y-ignore-image-dir", "", "Ignore the images in a given directory when inferring textual accessibility.")
+	manifestCmd.Flags().BoolVar(&inspectHtmlFlag, "inspect-html", false, "When inspecting the manifest, use the (X)HTML of documents to enhance accuracy of metadata")
 }
