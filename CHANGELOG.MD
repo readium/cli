@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 **Warning:** Features marked as *alpha* may change or be removed in a future release without notice. Use with caution.
 
+## [0.10.0] - 2026-09-14
+
+### Added
+
+- Added the `--inspect-html` flag to the `manifest` command. It converts the publication's (X)HTML documents into guided navigation documents and uses them to find where each image is used. Every image link in `readingOrder` and `resources` that is referenced from a document gains a `references` property: an array with one object per usage, carrying the image's `description` (its accessible name, e.g. the `alt` text), the guided navigation `role` values of the referencing element, and an `href` that locates that element in its document, either through its fragment id (`chapter.xhtml#par1`) or, when it has none, a `css()` fragment with a unique CSS selector (`chapter.xhtml#css(body%20%3E%20p:nth-child(3))`). Decorative images (`role="presentation"`, or an empty `alt` with no other accessible name) are not referenced. It can be combined with `--inspect-images`, which is unchanged
+
+### Changed
+
+- The go-toolkit has been updated to v0.16.0. For the detailed list, refer to the [go-toolkit's changelog](https://github.com/readium/go-toolkit/blob/develop/CHANGELOG.md); the highlights as they apply to the CLI:
+  - The guided navigation service (*alpha*) has been split in two, which changes the manifests `serve` produces for publications with media overlays. A dedicated media overlay service only converts SMIL media overlays, and surfaces solely through the alternates it swaps into `readingOrder` and `resources` items, which now point at `~readium/media-overlay.json?ref=...` links. The guided navigation service (`~readium/guided-navigation.json{?ref}`, advertised in the manifest's `links`) now only converts (X)HTML documents, including ones that also have a SMIL overlay, and no longer adds alternates to `readingOrder` or `resources` items. Both services now cover documents in `resources` as well as the reading order. If you consume either of these endpoints from `serve`, review your integration
+  - The HTML to guided navigation converter can now locate every object in its source document through `textref` locators, which is what powers the new `--inspect-html` flag
+  - Fixed a panic in the media overlay service when a manifest link has an alternate without a media type, and a panic in the CSS selector generator (shared by the content service and the `textref` locators) when its escaping produced a selector that could not be parsed back
+- The image inspection code behind `--inspect-images` has moved from the `pkg/helpers` package into a new `pkg/inspector` package, built around an `Inspector` interface so that multiple inspectors (currently image and image usage) run in a single pass over the manifest. Inspection now covers the whole manifest instead of only `readingOrder` and `resources`. If you import `helpers.ImageInspector` from Go code, use `inspector.Image` instead
+- Go and third-party dependencies updated, along with the pinned Docker base images and GitHub Actions
+
 ## [0.9.1] - 2026-07-23
 
 ### Changed
