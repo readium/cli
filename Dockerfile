@@ -39,7 +39,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 # RUN go test ./...
 
 # Produces very small images
-FROM gcr.io/distroless/static-debian12@sha256:a9fcaedd4c9b59e12dd65d954f0b5044f19b0647a8a3712e77205df9e7b102cd AS packager
+FROM gcr.io/distroless/static-debian12@sha256:d75cdd72874d4790092fcb1b058493ecf6bb5bf2b2b897045b00ff01d91843f2 AS packager
 
 # Extra metadata
 LABEL org.opencontainers.image.source="https://github.com/readium/cli"
