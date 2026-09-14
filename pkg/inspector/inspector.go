@@ -36,7 +36,7 @@ func (n *Run) TransformHREF(href manifest.HREF) manifest.HREF {
 	for i := range n.inspectors {
 		newHREF, err := n.inspectors[i].InspectHREF(href)
 		if err != nil {
-			n.err = errors.Wrap(err, "failed inspecting href "+href.String()+" with inspector for "+n.inspectors[i].Name())
+			n.err = errors.Wrap(err, "failed inspecting href "+href.String()+" with inspector "+n.inspectors[i].Name())
 			return href
 		}
 		if newHREF != nil {
