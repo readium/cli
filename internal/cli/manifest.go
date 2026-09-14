@@ -218,7 +218,7 @@ Examples:
 
 		if len(inspectors) > 0 {
 			inspection := inspector.CreateInspection(inspectors)
-			publication.Manifest.Copy(inspection)
+			publication.Manifest = publication.Manifest.Copy(inspection)
 			if inspection.Error() != nil {
 				return errors.Wrap(inspection.Error(), "failed inspecting manifest")
 			}
