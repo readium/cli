@@ -113,9 +113,9 @@ func (b *bondingCore) agentHash(deviceID uuid.UUID, r *http.Request) [32]byte {
 	h.Write([]byte("agent|"))
 	h.Write(deviceID[:])
 	h.Write([]byte{'|'})
+	// Don't try and add accept-language here, Safari drops it on `fetch` requests.
+	// There's no other good header we can use here
 	h.Write([]byte(r.Header.Get("User-Agent")))
-	h.Write([]byte{'|'})
-	h.Write([]byte(r.Header.Get("Accept-Language")))
 	var out [32]byte
 	copy(out[:], h.Sum(nil))
 	return out
