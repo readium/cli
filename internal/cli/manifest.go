@@ -214,6 +214,15 @@ Examples:
 			inspectors = append(inspectors, &inspector.ImageUsage{
 				GuidedNavigationService: service,
 			})
+
+			// Page break markers can only be found in the documents' HTML, so
+			// this accessibility inference lives here rather than in the streamer
+			if config.InferA11yMetadata != streamer.InferA11yMetadataNo {
+				inspectors = append(inspectors, &inspector.PageBreakMarkers{
+					GuidedNavigationService: service,
+					Mode:                    config.InferA11yMetadata,
+				})
+			}
 		}
 
 		if len(inspectors) > 0 {
@@ -263,5 +272,5 @@ func init() {
 	manifestCmd.Flags().BoolVar(&inspectImagesFlag, "inspect-images", false, "Inspect images in the manifest. Their links will be enhanced with size, width and height, and hashes")
 	manifestCmd.Flags().StringSliceVar(&inferIgnoreImageHashesFlag, "infer-a11y-ignore-image-hashes", nil, "Ignore the given hashes when inferring textual accessibility. Hashes are in the format <algorithm>:<base64 value>, separated by commas.")
 	manifestCmd.Flags().StringVar(&inferIgnoreImageDirectoryFlag, "infer-a11y-ignore-image-dir", "", "Ignore the images in a given directory when inferring textual accessibility.")
-	manifestCmd.Flags().BoolVar(&inspectHtmlFlag, "inspect-html", false, "When inspecting the manifest, use the (X)HTML of documents to enhance accuracy of metadata")
+	manifestCmd.Flags().BoolVar(&inspectHtmlFlag, "inspect-html", false, "When inspecting the manifest, use the (X)HTML of documents to enhance accuracy of metadata. Combined with --infer-a11y, also infers the pageBreakMarkers accessibility feature from page breaks found in the documents")
 }

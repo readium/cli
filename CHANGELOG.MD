@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 **Warning:** Features marked as *alpha* may change or be removed in a future release without notice. Use with caution.
 
+## [0.10.1] - 2026-09-24
+
+### Added
+
+- The `manifest` command now infers the `pageBreakMarkers` accessibility feature when `--inspect-html` is combined with `--infer-a11y` (`merged` or `split`). The publication's (X)HTML documents are scanned through their guided navigation representation for page break markers (`epub:type="pagebreak"` or `role="doc-pagebreak"`), stopping at the first one found. The feature is added to `metadata.accessibility` in `merged` mode, or to the inferred accessibility object in `split` mode
+
+### Fixed
+
+- The `jwt-bonding` and `jwks-bonding` modes no longer tie the bonding JWT to the browser's `Accept-Language` header, only to its `User-Agent`. Safari leaves `Accept-Language` out of the request that follows the bonding redirect, so publications failed to open in Safari with a 403 "browser integrity mismatch"
+
 ## [0.10.0] - 2026-09-14
 
 ### Added

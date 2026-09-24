@@ -46,6 +46,7 @@ It takes one of the following arguments:
 | `feature` | `tableOfContents` | If the publications contains a table of contents (check for the presence of a `toc` collection in RWPM). |
 | `feature` | `MathML` | If the publication contains any resource with MathML (check for the presence of the `contains` property where the value is `mathml` in `readingOrder` or `resources` in RWPM). |
 | `feature` | `synchronizedAudioText` | If the publication contains any reference to Media Overlays. |
+| `feature` | `pageBreakMarkers` | :warning: This rule requires the `--inspect-html` flag. If any of the publication's (X)HTML documents contains a page break marker (`epub:type="pagebreak"` or `role="doc-pagebreak"`). |
 
 ## Inspecting images
 
