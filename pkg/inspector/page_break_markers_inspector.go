@@ -112,7 +112,7 @@ func (n *PageBreakMarkers) InspectManifest(m manifest.Manifest) (*manifest.Manif
 		}
 		a11y.Merge(inferred)
 		if m.Metadata.OtherMetadata == nil {
-			m.Metadata.OtherMetadata = make(map[string]interface{})
+			m.Metadata.OtherMetadata = make(map[string]any)
 		}
 		if err := m.Metadata.SetOtherMetadata(manifest.InferredAccessibilityMetadataKey, a11y); err != nil {
 			return nil, errors.Wrap(err, "failed storing inferred accessibility metadata")

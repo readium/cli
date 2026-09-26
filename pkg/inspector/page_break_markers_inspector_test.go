@@ -128,7 +128,7 @@ func TestPageBreakMarkers_MergedKeepsAuthoredMetadata(t *testing.T) {
 func TestPageBreakMarkers_SplitAddsToInferred(t *testing.T) {
 	svc := &stubGuideService{docs: map[string]*guidednavigation.GuidedNavigationDocument{"ch1.xhtml": guide(pagebreak)}}
 	m := manifest.Manifest{
-		Metadata:     manifest.Metadata{OtherMetadata: map[string]interface{}{}},
+		Metadata:     manifest.Metadata{OtherMetadata: map[string]any{}},
 		ReadingOrder: manifest.LinkList{htmlLink("ch1.xhtml")},
 	}
 	// What the streamer's own inference would have stored

@@ -21,8 +21,8 @@ func (j *JWTBondingAuthProvider) Validate(w http.ResponseWriter, r *http.Request
 		return nil, authErr
 	}
 
-	if strings.HasPrefix(token, j.jwtPrefix) {
-		return j.validateBondingJWT(w, r, deviceID, strings.TrimPrefix(token, j.jwtPrefix))
+	if after, ok := strings.CutPrefix(token, j.jwtPrefix); ok {
+		return j.validateBondingJWT(w, r, deviceID, after)
 	}
 
 	return j.validateFreshJWT(w, r, deviceID, token, j.freshParser, func(t *jwt.Token) (any, error) {

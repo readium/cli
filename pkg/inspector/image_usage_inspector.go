@@ -13,14 +13,14 @@ import (
 
 type ImageReference struct {
 	Href        url.URL                                      `json:"href"`
-	Description guidednavigation.GuidedNavigationDescription `json:"description,omitempty"`
+	Description guidednavigation.GuidedNavigationDescription `json:"description"`
 	Role        []guidednavigation.GuidedNavigationRole      `json:"role,omitempty"`
 }
 
 func (r ImageReference) MarshalJSON() ([]byte, error) {
 	// url.URL and the description are serialized through their string forms,
 	// like the toolkit does for guided navigation objects
-	res := make(map[string]interface{}, 3)
+	res := make(map[string]any, 3)
 	if r.Href != nil {
 		if s := r.Href.String(); s != "" {
 			res["href"] = s
