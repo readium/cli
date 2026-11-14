@@ -5,22 +5,12 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/readium/go-toolkit/pkg/manifest"
 	"github.com/readium/go-toolkit/pkg/mediatype"
 )
 
 var mimeSubstitutions = map[string]string{
 	"application/vnd.ms-opentype": "font/otf",               // Not just because it's sane, but because CF will compress it!
 	"audio/opus":                  "audio/ogg; codecs=opus", // For max compatibility
-}
-
-var utfCharsetNeeded = []string{
-	mediatype.ReadiumWebpubManifest.String(),
-	mediatype.ReadiumDivinaManifest.String(),
-	mediatype.ReadiumAudiobookManifest.String(),
-	mediatype.ReadiumPositionList.String(),
-	mediatype.ReadiumContentDocument.String(),
-	mediatype.ReadiumGuidedNavigationDocument.String(),
 }
 
 var compressableMimes = []string{
@@ -35,6 +25,7 @@ var compressableMimes = []string{
 	mediatype.ReadiumPositionList.String(),
 	mediatype.ReadiumContentDocument.String(),
 	mediatype.ReadiumAudiobookManifest.String(),
+	mediatype.ReadiumGuidedNavigationDocument.String(),
 	"font/ttf",
 	"application/ttf",
 	"application/x-ttf",
@@ -54,22 +45,6 @@ var compressableMimes = []string{
 	mediatype.NCX.String(),
 	mediatype.XML.String(),
 	mediatype.JSON.String(),
-}
-
-func conformsToAsMimetype(conformsTo manifest.Profiles) mediatype.MediaType {
-	mime := mediatype.ReadiumWebpubManifest
-	for _, profile := range conformsTo {
-		switch profile {
-		case manifest.ProfileDivina:
-			mime = mediatype.ReadiumDivinaManifest
-		case manifest.ProfileAudiobook:
-			mime = mediatype.ReadiumAudiobookManifest
-		default:
-			continue
-		}
-		break
-	}
-	return mime
 }
 
 func supportsEncoding(r *http.Request, encoding string) bool {

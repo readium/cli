@@ -17,7 +17,7 @@ import (
 )
 
 func ipv4Net(a, b, c, d byte, subnetPrefixLen int) net.IPNet {
-	return net.IPNet{net.IPv4(a, b, c, d), net.CIDRMask(96+subnetPrefixLen, 128)}
+	return net.IPNet{IP: net.IPv4(a, b, c, d), Mask: net.CIDRMask(96+subnetPrefixLen, 128)}
 }
 
 var reservedIPv4Nets = []net.IPNet{
@@ -38,7 +38,7 @@ var reservedIPv4Nets = []net.IPNet{
 	ipv4Net(240, 0, 0, 0, 4),     // Reserved (includes broadcast / 255.255.255.255)
 }
 
-var globalUnicastIPv6Net = net.IPNet{net.IP{0x20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, net.CIDRMask(3, 128)}
+var globalUnicastIPv6Net = net.IPNet{IP: net.IP{0x20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, Mask: net.CIDRMask(3, 128)}
 
 func isIPv6GlobalUnicast(address net.IP) bool {
 	return globalUnicastIPv6Net.Contains(address)

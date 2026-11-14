@@ -3,7 +3,6 @@ package serve
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -38,7 +37,6 @@ import (
 	"github.com/readium/go-toolkit/pkg/pub"
 	"github.com/readium/go-toolkit/pkg/streamer"
 	"github.com/readium/go-toolkit/pkg/util/url"
-	"github.com/zeebo/xxh3"
 )
 
 func readingSessionDataURL(sessionURL string) (string, error) {
@@ -87,6 +85,20 @@ func (s *Server) getPublication(ctx context.Context) (*cache.CachedPublication, 
 	}
 
 	dat, ok := s.lfu.Get(cacheKey)
+	if !ok {
+		unlock, err := s.acquirePublicationOpen(ctx, cacheKey)
+		if err != nil {
+			return nil, err
+		}
+		// Another request may have finished opening while we waited. Each
+		// reader still follows the normal rights, bonding and retention path.
+		dat, ok = s.lfu.Get(cacheKey)
+		if ok {
+			unlock()
+		} else {
+			defer unlock()
+		}
+	}
 	if !ok {
 		var doc *session.ReadingSessionDocument
 		if isSession {
@@ -214,7 +226,7 @@ func (s *Server) getPublication(ctx context.Context) (*cache.CachedPublication, 
 					return nil, problems.NotImplemented.Build().
 						Detail("S3 client not configured").Problem()
 				}
-				config.ArchiveFactory = archive.NewS3ArchiveFactory(s.remote.S3, archive.NewDefaultRemoteArchiveConfig())
+				config.ArchiveFactory = archive.NewS3ArchiveFactory(s.remote.S3, s.remote.Config)
 				pub, err = streamer.New(config).Open(ctx, asset.S3(s.remote.S3, u), "")
 				if err != nil {
 					// Never serialize u into the detail: in session mode it is
@@ -230,7 +242,7 @@ func (s *Server) getPublication(ctx context.Context) (*cache.CachedPublication, 
 					return nil, problems.NotImplemented.Build().
 						Detail("GCS client not configured").Problem()
 				}
-				config.ArchiveFactory = archive.NewGCSArchiveFactory(s.remote.GCS, archive.NewDefaultRemoteArchiveConfig())
+				config.ArchiveFactory = archive.NewGCSArchiveFactory(s.remote.GCS, s.remote.Config)
 				pub, err = streamer.New(config).Open(ctx, asset.GCS(s.remote.GCS, u), "")
 				if err != nil {
 					return nil, problems.BadGateway.Build().
@@ -243,7 +255,7 @@ func (s *Server) getPublication(ctx context.Context) (*cache.CachedPublication, 
 					return nil, problems.NotImplemented.Build().
 						Detail("HTTP client not configured").Problem()
 				}
-				config.ArchiveFactory = archive.NewHTTPArchiveFactory(s.remote.HTTP, archive.NewDefaultRemoteArchiveConfig())
+				config.ArchiveFactory = archive.NewHTTPArchiveFactory(s.remote.HTTP, s.remote.Config)
 				pub, err = streamer.New(config).Open(ctx, asset.HTTP(s.remote.HTTP, u), "")
 				if err != nil {
 					return nil, problems.BadGateway.Build().
@@ -321,6 +333,39 @@ func (s *Server) getPublication(ctx context.Context) (*cache.CachedPublication, 
 		return s.getPublication(ctx)
 	}
 	return cp, nil
+}
+
+// acquirePublicationOpen serializes cold opens for one cache key. Cancellation
+// only stops the caller: a waiting request cannot cancel the active opener, and
+// a failed opener releases the gate so another request can retry independently.
+func (s *Server) acquirePublicationOpen(ctx context.Context, key string) (func(), error) {
+	for {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		s.openingMu.Lock()
+		if s.opening == nil {
+			s.opening = make(map[string]chan struct{})
+		}
+		pending, exists := s.opening[key]
+		if !exists {
+			pending = make(chan struct{})
+			s.opening[key] = pending
+			s.openingMu.Unlock()
+			return func() {
+				s.openingMu.Lock()
+				delete(s.opening, key)
+				close(pending)
+				s.openingMu.Unlock()
+			}, nil
+		}
+		s.openingMu.Unlock()
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-pending:
+		}
+	}
 }
 
 func (s *Server) enforceBonding(ctx context.Context, doc *session.ReadingSessionDocument) error {
@@ -419,23 +464,7 @@ func (s *Server) getManifest(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Hold the read lock while reading manifest fields and marshalling, so a
-	// concurrent RefreshSession cannot mutate the manifest mid-read.
-	cp.Mu.RLock()
-	conformsTo := conformsToAsMimetype(cp.Publication.Manifest.Metadata.ConformsTo)
-	selfLink := &manifest.Link{
-		Rels:      manifest.Strings{"self"},
-		MediaType: &conformsTo,
-		Href:      manifest.NewHREF(selfUrl),
-	}
-	var j []byte
-	if s.config.JSONIndent == "" {
-		j, err = json.Marshal(cp.Publication.Manifest.ToMap(selfLink))
-	} else {
-		j, err = json.MarshalIndent(cp.Publication.Manifest.ToMap(selfLink), "", s.config.JSONIndent)
-	}
-	cachedAt := cp.CachedAt
-	cp.Mu.RUnlock()
+	response, err := cp.ManifestResponse(selfUrl, s.config.JSONIndent)
 
 	if err != nil {
 		slog.Error("failed marshalling manifest JSON", "error", err)
@@ -443,15 +472,10 @@ func (s *Server) getManifest(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Add headers
-	w.Header().Set("content-type", conformsTo.String()+"; charset=utf-8")
+	w.Header().Set("content-type", response.ContentType)
 	w.Header().Set("cache-control", "private, must-revalidate")
-
-	// Etag based on hash of the manifest bytes
-	etag := `"` + strconv.FormatUint(xxh3.Hash(j), 36) + `"`
-	w.Header().Set("Etag", etag)
-
-	http.ServeContent(w, req, "manifest.json", cachedAt, bytes.NewReader(j))
+	w.Header().Set("Etag", response.ETag)
+	http.ServeContent(w, req, "manifest.json", response.Modified, bytes.NewReader(response.JSON))
 }
 
 func (s *Server) getAsset(w http.ResponseWriter, r *http.Request) {
@@ -480,7 +504,7 @@ func (s *Server) getAsset(w http.ResponseWriter, r *http.Request) {
 	// Resolve the link and acquire a resource handle under the read lock,
 	// so a concurrent RefreshSession cannot mutate the manifest mid-lookup.
 	cp.Mu.RLock()
-	link := cp.Publication.LinkWithHref(href)
+	link := cp.LinkWithHrefLocked(href)
 	if link == nil {
 		cp.Mu.RUnlock()
 		problems.Write(problems.NotFound.Build().Detailf("asset %q not found in publication", href.String()).Problem(), w, r)
@@ -507,9 +531,6 @@ func (s *Server) getAsset(w http.ResponseWriter, r *http.Request) {
 	contentType := finalLink.MediaType.String()
 	if sub, ok := mimeSubstitutions[contentType]; ok {
 		contentType = sub
-	}
-	if slices.Contains(utfCharsetNeeded, contentType) {
-		contentType += "; charset=utf-8"
 	}
 	w.Header().Set("content-type", contentType)
 	w.Header().Set("cache-control", "private, max-age=86400, immutable")

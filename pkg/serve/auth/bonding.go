@@ -132,6 +132,22 @@ func (b *bondingCore) deviceHash(deviceID uuid.UUID) [32]byte {
 	return out
 }
 
+func decodeBondingHash(encoded string) (out [32]byte, valid bool) {
+	if base64.RawURLEncoding.DecodedLen(len(encoded)) <= len(out) {
+		n, err := base64.RawURLEncoding.Decode(out[:], []byte(encoded))
+		return out, err == nil && n == len(out)
+	}
+	// DecodeString also accepts embedded CR/LF, so a valid 32-byte hash can
+	// have more than the usual 43 encoded characters. Preserve that behavior
+	// without allowing oversized input to overrun the fixed output buffer.
+	decoded, err := base64.RawURLEncoding.DecodeString(encoded)
+	if err != nil || len(decoded) != len(out) {
+		return out, false
+	}
+	copy(out[:], decoded)
+	return out, true
+}
+
 func (b *bondingCore) setCookie(w http.ResponseWriter, name, value string, refreshTTL time.Duration) {
 	http.SetCookie(w, &http.Cookie{
 		Name:        b.cookiePrefix + "-" + name,
@@ -181,21 +197,21 @@ func (b *bondingCore) validateBondingJWT(w http.ResponseWriter, r *http.Request,
 		return nil, &AuthError{StatusCode: http.StatusInternalServerError, Err: errors.New("failed extracting subject from JWT")}
 	}
 
-	claimDevice, err := base64.RawURLEncoding.DecodeString(claims.DeviceHash)
-	if err != nil || len(claimDevice) != 32 {
+	claimDevice, valid := decodeBondingHash(claims.DeviceHash)
+	if !valid {
 		return nil, &AuthError{StatusCode: http.StatusInternalServerError, Err: errors.New("invalid device hash in JWT")}
 	}
-	claimAgent, err := base64.RawURLEncoding.DecodeString(claims.AgentHash)
-	if err != nil || len(claimAgent) != 32 {
+	claimAgent, valid := decodeBondingHash(claims.AgentHash)
+	if !valid {
 		return nil, &AuthError{StatusCode: http.StatusInternalServerError, Err: errors.New("invalid agent hash in JWT")}
 	}
 
 	curDevice := b.deviceHash(deviceID)
 	curAgent := b.agentHash(deviceID, r)
-	if !bytes.Equal(curDevice[:], claimDevice) {
+	if !bytes.Equal(curDevice[:], claimDevice[:]) {
 		return nil, &AuthError{StatusCode: http.StatusForbidden, Err: errors.New("device integrity mismatch")}
 	}
-	if !bytes.Equal(curAgent[:], claimAgent) {
+	if !bytes.Equal(curAgent[:], claimAgent[:]) {
 		return nil, &AuthError{StatusCode: http.StatusForbidden, Err: errors.New("browser integrity mismatch")}
 	}
 
