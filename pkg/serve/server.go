@@ -2,6 +2,7 @@ package serve
 
 import (
 	"net/http"
+	"sync"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -62,6 +63,9 @@ type Server struct {
 	remote Remote
 	router *mux.Router
 	lfu    *cache.TinyLFU
+
+	openingMu sync.Mutex
+	opening   map[string]chan struct{}
 }
 
 const MaxCachedPublicationAmount = 10

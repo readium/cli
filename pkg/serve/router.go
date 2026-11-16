@@ -1,6 +1,7 @@
 package serve
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/pprof"
@@ -43,9 +44,25 @@ func (s *Server) Routes() *mux.Router {
 	}
 
 	pub := r.PathPrefix("/webpub/{path}").Subrouter()
+	// mux applies middleware functions while matching each request. Construct
+	// the adapter once so its compressor and buffer pools survive across requests.
+	adapter, err := httpcompression.DefaultAdapter(httpcompression.ContentTypes(compressableMimes, false))
+	if err != nil {
+		panic(fmt.Errorf("configure response compression: %w", err))
+	}
 	pub.Use(func(next http.Handler) http.Handler {
-		adapter, _ := httpcompression.DefaultAdapter(httpcompression.ContentTypes(compressableMimes, false))
-		return adapter(next)
+		compressed := adapter(next)
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			// The compression adapter removes Range whenever it recognizes an
+			// encoding, even for media types it ultimately won't compress. Keep
+			// byte-range requests on the original representation instead.
+			if req.Header.Get("Range") != "" {
+				w.Header().Add("Vary", "Accept-Encoding")
+				next.ServeHTTP(w, req)
+				return
+			}
+			compressed.ServeHTTP(w, req)
+		})
 	})
 	pub.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {

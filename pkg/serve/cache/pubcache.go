@@ -17,6 +17,10 @@ type CachedPublication struct {
 
 	rightsService session.RightsService
 	Mu            sync.RWMutex
+	manifestMu    sync.Mutex
+	manifestJSON  *manifestJSON
+	linkMu        sync.Mutex
+	linkCache     *publicationLinkCache
 
 	// refcounting so the underlying publication (and its archive/file
 	// handles) is never closed while a request is still streaming from it.
@@ -51,6 +55,8 @@ func (cp *CachedPublication) RefreshSession(doc *session.ReadingSessionDocument)
 	defer cp.Mu.Unlock()
 	cp.Session = doc
 	cp.CachedAt = time.Now()
+	cp.manifestJSON = nil
+	cp.linkCache = nil
 	if doc == nil {
 		return
 	}
