@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:1-bookworm@sha256:1ecb7edf62a0408027bd5729dfd6b1b8766e578e8df93995b225dfd0944eb651 AS builder
+FROM --platform=$BUILDPLATFORM golang:1-bookworm@sha256:69a7b9788769bec032d238959b61854e9ae87f57be9029ec04e9885fabf99195 AS builder
 ARG BUILDARCH TARGETOS TARGETARCH
 ARG NO_SNAPSHOT=false
 
@@ -49,9 +49,9 @@ LABEL org.opencontainers.image.source="https://github.com/readium/cli"
 # this file as part of its mime package, and readium/go-toolkit
 # has a mediatype package that falls back to Go's mime
 # package to discover a file's mimetype when all else fails.
-# Vendored into the repository (from https://pagure.io/mailcap)
+# Vendored into the repository (from https://github.com/InfrastructureServices/mailcap)
 # so builds are reproducible and don't fetch from a mutable ref.
-# ADD https://pagure.io/mailcap/raw/master/f/mime.types /etc/
+# ADD https://raw.githubusercontent.com/InfrastructureServices/mailcap/refs/heads/master/mime.types /etc/
 COPY mime.types /etc/
 
 # Add demo EPUBs to the container by default

@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 **Warning:** Features marked as *alpha* may change or be removed in a future release without notice. Use with caution.
 
+## [0.11.0] - 2026-11-15
+
+### Changed
+
+- The go-toolkit has been updated to v0.16.2. For the detailed list, refer to the [go-toolkit's changelog](https://github.com/readium/go-toolkit/blob/develop/CHANGELOG.md); the highlights as they apply to the CLI:
+  - Accessibility metadata is now serialized in its compact form when it holds a single value, in both the `manifest` command's output and the manifests `serve` produces: a single `conformsTo` profile is written as a string instead of a one-item array, and an `accessModeSufficient` holding one access mode is written as a string instead of a nested array. If you parse these fields yourself, make sure you accept both forms
+  - EPUB parsing is faster and allocates less, notably the OPF, which is now parsed in a streaming manner (~10% faster overall publication opening across a sample of ~73 EPUBs)
+- Readium documents with JSON content (manifests, positions, content, guided navigation) no longer append `; charset=utf-8` to their `content-type` response header. If a compliant HTTP client is used, it should continue to work properly
+- Minor performance improvements to the web server (AI-assisted):
+  - When several requests arrive at once for a publication that isn't cached yet, only one of them opens it and the others wait for that to finish. Previously each request opened its own copy. Each request still goes through its own rights and bonding checks, and a request that gives up waiting doesn't cancel the open
+  - A publication's manifest JSON and its `etag` are generated once and reused for repeat requests to the same manifest URL, until its reading session is refreshed. Only the most recent URL's version is kept per publication
+  - Asset lookups by `href` are memoized per publication (up to 128 entries), until its reading session is refreshed
+  - The response compression middleware is created once instead of on every request, so its compressor and buffer pools are reused
+  - Validating a bonding JWT (`jwt-bonding`, `jwks-bonding`) no longer allocates to decode its device and agent hashes
+- Go and third-party dependencies updated, along with the GitHub Actions
+
+### Fixed
+
+- The `--remote-archive-timeout`, `--remote-archive-cache-size`, `--remote-archive-cache-count` and `--remote-archive-cache-all` flags of the `serve` command were ignored, and archives on S3, GCS and HTTP(S) sources were always opened with the default settings. The flags now take effect
+- Byte-range requests that also accepted a compressed encoding (e.g. `Accept-Encoding: gzip`) got the whole resource with a `200` instead of the requested range. The compression middleware dropped the `Range` header even for media types it doesn't compress. Range requests now skip compression and get the uncompressed resource (this is unlikely to affect typical clients)
+- Guided navigation documents (`~readium/guided-navigation.json`) are now compressed like the other Readium JSON documents
+
 ## [0.10.1] - 2026-09-24
 
 ### Added
