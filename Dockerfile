@@ -49,9 +49,9 @@ LABEL org.opencontainers.image.source="https://github.com/readium/cli"
 # this file as part of its mime package, and readium/go-toolkit
 # has a mediatype package that falls back to Go's mime
 # package to discover a file's mimetype when all else fails.
-# Vendored into the repository (from https://pagure.io/mailcap)
+# Vendored into the repository (from https://github.com/InfrastructureServices/mailcap)
 # so builds are reproducible and don't fetch from a mutable ref.
-# ADD https://pagure.io/mailcap/raw/master/f/mime.types /etc/
+# ADD https://raw.githubusercontent.com/InfrastructureServices/mailcap/refs/heads/master/mime.types /etc/
 COPY mime.types /etc/
 
 # Add demo EPUBs to the container by default
