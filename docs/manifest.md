@@ -47,6 +47,29 @@ It takes one of the following arguments:
 | `feature` | `MathML` | If the publication contains any resource with MathML (check for the presence of the `contains` property where the value is `mathml` in `readingOrder` or `resources` in RWPM). |
 | `feature` | `synchronizedAudioText` | If the publication contains any reference to Media Overlays. |
 | `feature` | `pageBreakMarkers` | :warning: This rule requires the `--inspect-html` flag. If any of the publication's (X)HTML documents contains a page break marker (`epub:type="pagebreak"` or `role="doc-pagebreak"`). |
+| `language` | BCP-47 language tags | :warning: This rule requires the `--inspect-html` flag, and is only used with `--infer-a11y=split`: inferred languages are never merged with the authored metadata. The languages declared in the publication's (X)HTML documents (`lang` or `xml:lang`), ordered by the number of strings found in each language, most used first. |
+
+#### Inferred languages
+
+The inferred `language` is not part of the accessibility metadata that a publication can declare, which is why it's only available in the inferred accessibility object:
+
+```sh
+readium manifest --inspect-html --infer-a11y=split publication.epub
+```
+
+```json
+"https://readium.org/webpub-manifest#inferredAccessibility": {
+  "accessMode": ["visual"],
+  "feature": ["tableOfContents"],
+  "language": ["fr", "en-US"]
+}
+```
+
+- A string is a block of text (a paragraph, a heading, a list item…), or a run of text in another language inside of one, such as `<i lang="fr">déjà vu</i>` in an English paragraph. The length of the text is not taken into account.
+- Languages with the same number of strings are listed in the order they first appear in the publication.
+- Text with no language declared on it or on any of its ancestors is not counted. Nothing is inferred for a publication that doesn't declare any language in its documents.
+- Tags are normalized to their canonical form (`en_us` becomes `en-US`, the deprecated `iw` becomes `he`) and keep their region and script, so `en` and `en-US` are two different languages. Tags that are not valid are ignored.
+- Like `language` in the publication's metadata, a single language is written as a string instead of an array.
 
 ## Inspecting images
 
