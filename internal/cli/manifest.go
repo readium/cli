@@ -211,6 +211,10 @@ Examples:
 				return fmt.Errorf("publication does not have a %s service, which is required for HTML inspection", pub.GuidedNavigationService_Name)
 			}
 
+			// Every HTML inspector reads the guides of the same documents:
+			// generate each of them only once
+			service = inspector.CacheGuides(service)
+
 			inspectors = append(inspectors, &inspector.ImageUsage{
 				GuidedNavigationService: service,
 			})
@@ -221,6 +225,14 @@ Examples:
 				inspectors = append(inspectors, &inspector.PageBreakMarkers{
 					GuidedNavigationService: service,
 					Mode:                    config.InferA11yMetadata,
+				})
+			}
+
+			// So can the languages of the text. This inference is riskier than
+			// the others: it's never merged with the publication's own metadata
+			if config.InferA11yMetadata == streamer.InferA11yMetadataSplit {
+				inspectors = append(inspectors, &inspector.Languages{
+					GuidedNavigationService: service,
 				})
 			}
 		}
@@ -272,5 +284,5 @@ func init() {
 	manifestCmd.Flags().BoolVar(&inspectImagesFlag, "inspect-images", false, "Inspect images in the manifest. Their links will be enhanced with size, width and height, and hashes")
 	manifestCmd.Flags().StringSliceVar(&inferIgnoreImageHashesFlag, "infer-a11y-ignore-image-hashes", nil, "Ignore the given hashes when inferring textual accessibility. Hashes are in the format <algorithm>:<base64 value>, separated by commas.")
 	manifestCmd.Flags().StringVar(&inferIgnoreImageDirectoryFlag, "infer-a11y-ignore-image-dir", "", "Ignore the images in a given directory when inferring textual accessibility.")
-	manifestCmd.Flags().BoolVar(&inspectHtmlFlag, "inspect-html", false, "When inspecting the manifest, use the (X)HTML of documents to enhance accuracy of metadata. Combined with --infer-a11y, also infers the pageBreakMarkers accessibility feature from page breaks found in the documents")
+	manifestCmd.Flags().BoolVar(&inspectHtmlFlag, "inspect-html", false, "When inspecting the manifest, use the (X)HTML of documents to enhance accuracy of metadata. Combined with --infer-a11y, also infers the pageBreakMarkers accessibility feature from page breaks found in the documents, and with --infer-a11y=split, the languages of their text")
 }
