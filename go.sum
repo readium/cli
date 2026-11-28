@@ -257,7 +257,7 @@ github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 h1:GFCKgm
 github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10/go.mod h1:t/avpk3KcrXxUnYOhZhMXJlSEyie6gQbtLq5NM3loB8=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4/go.mod h1:xMI15A0UPsDsEKsMN9yxemIoYk6Tm2C1GtYGdfGttqA=
-github.com/readium/go-toolkit v0.17.1 h1:A2u8jXaqkOq+De+jtmVCmdawLBaFWRYbBSrhACRWUh0=
+github.com/readium/go-toolkit v0.17.1 h1:Bj9CDRTsqD/MAtvD1jt5K6F/qW6NNcLV9/fJCrwiKzI=
 github.com/readium/go-toolkit v0.17.1/go.mod h1:YxTxA0u1F+LzpGuzlbA/Jea0G+Q3mh+2hszh8m8l2LM=
 github.com/readium/zran v0.0.0-20260525212206-dcf56adb2c0e h1:DQJkuzoHhmE+FGtWRanEanh2IpiXRxwmR4OgQwiD5vA=
 github.com/readium/zran v0.0.0-20260525212206-dcf56adb2c0e/go.mod h1:3znXhDJYPPRNT6KgvPVhTmzAiqUqzEPKUPhPXrPSdB0=
