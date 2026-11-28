@@ -1,0 +1,213 @@
+package main
+
+import (
+	"archive/zip"
+	"compress/flate"
+	"context"
+	"io"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"time"
+
+	"github.com/pkg/errors"
+	"github.com/readium/go-toolkit/pkg/archive"
+	"github.com/readium/go-toolkit/pkg/asset"
+	"github.com/readium/go-toolkit/pkg/fetcher"
+	"github.com/readium/go-toolkit/pkg/manifest"
+	"github.com/readium/go-toolkit/pkg/mediatype"
+	"github.com/readium/go-toolkit/pkg/parser/epub"
+	"github.com/readium/go-toolkit/pkg/util/url"
+	"golang.org/x/sync/errgroup"
+)
+
+func main() {
+	args := os.Args
+	if len(args) < 3 {
+		panic("missing path arguments")
+	}
+	root := args[1]
+	dest := args[2]
+	_, err := os.Stat(root)
+	if err != nil {
+		panic(err)
+	}
+	_, err = os.Stat(dest)
+	if err != nil {
+		panic(err)
+	}
+	println("Input path:", root)
+	println("Output path:", dest)
+	dfs := os.DirFS(root)
+	g := new(errgroup.Group)
+	println("Parallelism:", runtime.NumCPU())
+	g.SetLimit(runtime.NumCPU())
+
+	var count uint32
+	fs.WalkDir(dfs, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			panic(err)
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if !strings.HasSuffix(d.Name(), ".epub") {
+			return nil
+		}
+		count++
+
+		g.Go(func() error {
+			ctx, cancel := context.WithTimeout(context.TODO(), time.Second*30)
+			defer cancel()
+
+			fp := filepath.Join(root, path)
+			a := asset.File(url.MustURLFromString(fp))
+			f, err := a.CreateFetcher(ctx, asset.Dependencies{
+				ArchiveFactory: archive.NewArchiveFactory(),
+			}, "")
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+
+			if !a.MediaType(ctx).Equal(&mediatype.EPUB) {
+				return errors.New(path + " is not an EPUB!")
+			}
+			opfPath, err := epub.GetRootFilePath(ctx, f)
+			if err != nil {
+				return err
+			}
+			opfResource := f.Get(ctx, manifest.Link{Href: manifest.NewHREF(opfPath)})
+			rawOPF, errx := fetcher.ReadResourceAsString(ctx, opfResource)
+			if errx != nil {
+				return errx
+			}
+			opfXmlDocument, errx := fetcher.ReadResourceAsXML(ctx, opfResource, map[string]string{
+				epub.NamespaceOPF:                    "opf",
+				epub.NamespaceDC:                     "dc",
+				epub.VocabularyDCTerms:               "dcterms",
+				"http://www.idpf.org/2013/rendition": "rendition",
+			})
+			if errx != nil {
+				return errx
+			}
+			packageDocument, err := epub.ParsePackageDocument(opfXmlDocument, opfPath)
+			if err != nil {
+				return errors.Wrap(err, "invalid OPF file")
+			}
+			f.Close() // Close fetcher to free archive, simpler to operate with raw ZIP for now
+
+			readCloser, err := zip.OpenReader(fp)
+			if err != nil {
+				return err
+			}
+			defer readCloser.Close()
+
+			dp := filepath.Join(dest, path)
+			err = os.MkdirAll(filepath.Dir(dp), os.ModePerm)
+			if err != nil {
+				return err
+			}
+			outFile, err := os.Create(dp)
+			if err != nil {
+				return err
+			}
+			defer outFile.Close()
+			writer := zip.NewWriter(outFile)
+			writer.RegisterCompressor(zip.Deflate, func(out io.Writer) (io.WriteCloser, error) {
+				return flate.NewWriter(out, flate.BestCompression)
+			})
+			defer writer.Close()
+
+			for _, file := range readCloser.File {
+				if file.Name == opfPath.String() {
+					// This is the OPF
+					w, err := writer.CreateHeader(&zip.FileHeader{
+						Name:     file.Name,
+						Method:   zip.Deflate,
+						Modified: time.Now(),
+					})
+					if err != nil {
+						return err
+					}
+
+					var lines []string
+					if packageDocument.EPUBVersion < 3.0 {
+						// EPUB 2
+						lines = []string{
+							`<!--TDMRep injected by EDRLab-->`,
+							`<meta name="tdm:reservation" content="1" />`,
+							`<meta name="tdm:policy" content="https://www.fenixx.fr/tdm" />`,
+						}
+					} else {
+						// EPUB 3
+						lines = []string{
+							`<!--TDMRep injected by EDRLab-->`,
+							`<meta property="tdm:reservation">1</meta>`,
+							`<meta property="tdm:policy">https://www.fenixx.fr/tdm</meta>`,
+						}
+					}
+					i := strings.LastIndex(rawOPF, "</metadata>")
+					if i < 0 {
+						return errors.New("invalid OPF, missing </metadata> tag")
+					}
+
+					// Figure out what the indent is by looking at the last line before </metadata>
+
+					var indent string
+
+					j := strings.LastIndex(rawOPF[:i], "\n")
+					if j >= 0 {
+						// Set i to offset of j
+						i = j
+
+						k := strings.LastIndex(rawOPF[:j], "\n")
+						if k >= 0 {
+							line := rawOPF[k+1 : j]
+							for _, r := range line {
+								if r == ' ' || r == '\t' {
+									indent += string(r)
+								} else {
+									break
+								}
+							}
+						}
+					}
+
+					var sb strings.Builder
+					for _, line := range lines {
+						if len(indent) > 0 {
+							sb.WriteRune('\n')
+						}
+						sb.WriteString(indent)
+						sb.WriteString(line)
+					}
+					if _, err := w.Write([]byte(rawOPF[:i])); err != nil {
+						return err
+					}
+					if _, err := w.Write([]byte(sb.String())); err != nil {
+						return err
+					}
+					if _, err := w.Write([]byte(rawOPF[i:])); err != nil {
+						return err
+					}
+				} else {
+					err = writer.Copy(file)
+					if err != nil {
+						return err
+					}
+				}
+			}
+			return nil
+		})
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
+		panic(err)
+	}
+
+	println("Processed", count, "EPUBs")
+}

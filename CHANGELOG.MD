@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 **Warning:** Features marked as *alpha* may change or be removed in a future release without notice. Use with caution.
 
+## [Unreleased]
+
+### Added
+
+- The `manifest` command now infers the languages of a publication's text when `--inspect-html` is combined with `--infer-a11y=split`. The publication's (X)HTML documents are scanned through their guided navigation representation, and the languages declared in them (`lang` or `xml:lang`) are listed under `language` in the inferred accessibility object, as BCP-47 tags ordered by the number of strings found in each language, most used first. Like `metadata.language`, a single language is written as a string instead of a one-item array
+  - A string is a block of text, or a run of text in another language inside of one (e.g. `<i lang="fr">`). Text with no declared language is not counted, so nothing is inferred for publications that don't declare any
+  - Tags are normalized (`en_us` becomes `en-US`) and keep their region and script, so `en` and `en-US` are listed separately. Tags that are not valid are ignored
+  - This inference is never merged into the publication's own metadata: nothing is inferred with `--infer-a11y=merged`
+- The `manifest` command now infers the `textual` and `visual` access modes from the content of a publication's (X)HTML documents when `--inspect-html` is combined with `--infer-a11y`. `textual` is inferred when a document contains text, and `visual` when one contains an image, an inline SVG or a video which is neither decorative (`role="presentation"` or `role="none"`) nor a cover
+  - Only the documents of the reading order are read, without the navigation document. Image descriptions such as `alt` are not text, so a publication made of images is not `textual`. An image with an empty `alt` is not considered decorative
+  - These access modes are inferred even when the publication declares its own `accessMode`: the missing ones are added to it with `--infer-a11y=merged`, or listed in the inferred accessibility object with `--infer-a11y=split`
+
+### Changed
+
+- The go-toolkit has been updated to v0.17.1. For the detailed list, refer to the [go-toolkit's changelog](https://github.com/readium/go-toolkit/blob/develop/CHANGELOG.md); the highlights as they apply to the CLI:
+  - Publications are handled more strictly as untrusted input. Crafted ZIP archives can no longer make the CLI allocate gigabytes of memory, and package documents (manifests, OPF, navigation documents, media overlays…) larger than 32 MiB are an error instead of being read whole
+  - Exploded publications no longer serve files outside of their directory through symbolic links, nor named pipes or devices. S3 and GCS publications list every object of their prefix, rather than the first 1000
+  - The access mode inference changes below
+- The `visual` access mode is no longer inferred from the images and videos which are only listed in a publication's `resources`, which made nearly every EPUB with a cover `visual`. Without `--inspect-html`, it is now only inferred when the reading order itself contains an image or a video. For most EPUBs, this means that `--infer-a11y` alone no longer infers `visual`: combine it with `--inspect-html` to infer it from the images the documents actually use
+- With `--inspect-html`, the `references` of an image now list the places where it's used as a decorative image (`"role": ["presentation"]`) or with an empty `alt`, which were left out before, as well as the SVGs embedding it with an `<image>` element
+- With `--inspect-html`, each (X)HTML document is now converted to its guided navigation representation only once, instead of once for every inspection that reads it
+
 ## [0.11.0] - 2026-11-15
 
 ### Changed

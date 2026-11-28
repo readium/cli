@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	httprange "github.com/gotd/contrib/http_range"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -302,7 +303,13 @@ func buildCBZ(t *testing.T, big []byte) []byte {
 // the entry's prefix, and not the whole remaining archive.
 func TestServeRemoteArchiveStoredEntryRanged(t *testing.T) {
 	big := pattern(5 << 20)
-	o := newOrigin(map[string][]byte{"/pub/book.cbz": buildCBZ(t, big)})
+	cbz := buildCBZ(t, big)
+	zr, err := zip.NewReader(bytes.NewReader(cbz), int64(len(cbz)))
+	require.NoError(t, err)
+	dataOffset, err := zr.File[0].DataOffset()
+	require.NoError(t, err)
+
+	o := newOrigin(map[string][]byte{"/pub/book.cbz": cbz})
 	defer o.srv.Close()
 	router := newTestRouter(t, o)
 
@@ -311,29 +318,39 @@ func TestServeRemoteArchiveStoredEntryRanged(t *testing.T) {
 	o.reset()
 
 	// 3 MiB range starting 1 MiB into the entry
+	const start, end = 1 << 20, (4 << 20) - 1
 	req := httptest.NewRequest(http.MethodGet, "/webpub/"+token+"/001.jpg", nil)
-	req.Header.Set("Range", "bytes=1048576-4194303")
+	req.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", start, end))
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusPartialContent, rec.Code)
-	require.Equal(t, big[1048576:4194304], rec.Body.Bytes())
+	require.Equal(t, big[start:end+1], rec.Body.Bytes())
 
-	// Expected origin traffic: at most one (open-ended, but aborted) header
-	// probe for the entry, plus the body fetched in copy-buffer-sized chunks
-	// (2 MiB + 1 MiB for a 3 MiB range). Before the fix this was one buffered
-	// read of the whole remaining entry plus a full drain of the archive tail.
-	reqs := o.snapshot("/pub/book.cbz")
-	var bounded, openEnded int
-	for _, r := range reqs {
-		if strings.HasSuffix(r.rng, "-") {
-			openEnded++
-		} else {
-			bounded++
-		}
+	// The first entry's local header starts at archive offset zero. Its probe
+	// can name EOF explicitly even though the reader closes it early.
+	isHeaderProbe := func(r originRequest) bool {
+		return r.method == http.MethodGet && strings.HasPrefix(r.rng, "bytes=0-")
 	}
-	assert.LessOrEqual(t, openEnded, 1, "at most the header probe may be open-ended, got %+v", reqs)
-	assert.LessOrEqual(t, bounded, 2, "3 MiB should be fetched in at most two chunks, got %+v", reqs)
+	reqs := o.snapshot("/pub/book.cbz")
+	var chunks, probes int
+	next := dataOffset + start
+	for _, r := range reqs {
+		if isHeaderProbe(r) {
+			probes++
+			continue
+		}
+		require.Equal(t, http.MethodGet, r.method)
+		ranges, err := httprange.ParseRange(r.rng, int64(len(cbz)))
+		require.NoError(t, err)
+		require.Len(t, ranges, 1, "expected a single origin range, got %+v", r)
+		assert.Equal(t, next, ranges[0].Start, "unexpected payload offset in %+v", r)
+		next += ranges[0].Length
+		chunks++
+	}
+	assert.Equal(t, dataOffset+end+1, next, "origin ranges must cover the requested payload")
+	assert.LessOrEqual(t, chunks, 2, "too many payload chunks: %+v", reqs)
+	assert.LessOrEqual(t, probes, 1, "too many entry header probes: %+v", reqs)
 
 	// A second ranged request must not re-fetch the entry header.
 	o.reset()
@@ -344,7 +361,7 @@ func TestServeRemoteArchiveStoredEntryRanged(t *testing.T) {
 	require.Equal(t, http.StatusPartialContent, rec.Code)
 	require.Equal(t, big[:2097152], rec.Body.Bytes())
 	for _, r := range o.snapshot("/pub/book.cbz") {
-		assert.False(t, strings.HasSuffix(r.rng, "-"), "entry header should be cached, got open-ended request %+v", r)
+		assert.False(t, isHeaderProbe(r), "entry header should be cached, got %+v", r)
 	}
 }
 
