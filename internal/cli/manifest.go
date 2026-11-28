@@ -176,9 +176,13 @@ Examples:
 		if inspectHtmlFlag {
 			// HTML inspection reads the publication's guided navigation documents.
 			// Generate them with textref locators, so inspected objects can be
-			// located in their documents.
+			// located in their documents, and with the decorative images that are
+			// otherwise left out, so that all the images of a document are known.
 			config.OnCreatePublication = func(b *pub.Builder) error {
-				factory := pub.HTMLGuidedNavigationServiceFactory(converter.WithTextRefLocators())
+				factory := pub.HTMLGuidedNavigationServiceFactory(
+					converter.WithTextRefLocators(),
+					converter.WithDecorativeImages(),
+				)
 				b.ServicesBuilder.Set(pub.GuidedNavigationService_Name, &factory)
 				return nil
 			}
@@ -220,12 +224,20 @@ Examples:
 			})
 
 			// Page break markers can only be found in the documents' HTML, so
-			// this accessibility inference lives here rather than in the streamer
+			// this accessibility inference lives here rather than in the streamer.
+			// The same goes for telling whether the documents hold text, and
+			// images which are neither decorative nor a cover
 			if config.InferA11yMetadata != streamer.InferA11yMetadataNo {
-				inspectors = append(inspectors, &inspector.PageBreakMarkers{
-					GuidedNavigationService: service,
-					Mode:                    config.InferA11yMetadata,
-				})
+				inspectors = append(inspectors,
+					&inspector.PageBreakMarkers{
+						GuidedNavigationService: service,
+						Mode:                    config.InferA11yMetadata,
+					},
+					&inspector.AccessModes{
+						GuidedNavigationService: service,
+						Mode:                    config.InferA11yMetadata,
+					},
+				)
 			}
 
 			// So can the languages of the text. This inference is riskier than
@@ -284,5 +296,5 @@ func init() {
 	manifestCmd.Flags().BoolVar(&inspectImagesFlag, "inspect-images", false, "Inspect images in the manifest. Their links will be enhanced with size, width and height, and hashes")
 	manifestCmd.Flags().StringSliceVar(&inferIgnoreImageHashesFlag, "infer-a11y-ignore-image-hashes", nil, "Ignore the given hashes when inferring textual accessibility. Hashes are in the format <algorithm>:<base64 value>, separated by commas.")
 	manifestCmd.Flags().StringVar(&inferIgnoreImageDirectoryFlag, "infer-a11y-ignore-image-dir", "", "Ignore the images in a given directory when inferring textual accessibility.")
-	manifestCmd.Flags().BoolVar(&inspectHtmlFlag, "inspect-html", false, "When inspecting the manifest, use the (X)HTML of documents to enhance accuracy of metadata. Combined with --infer-a11y, also infers the pageBreakMarkers accessibility feature from page breaks found in the documents, and with --infer-a11y=split, the languages of their text")
+	manifestCmd.Flags().BoolVar(&inspectHtmlFlag, "inspect-html", false, "When inspecting the manifest, use the (X)HTML of documents to enhance accuracy of metadata. Combined with --infer-a11y, also infers the textual and visual access modes from the text and images of the documents, the pageBreakMarkers accessibility feature from their page breaks, and with --infer-a11y=split, the languages of their text")
 }

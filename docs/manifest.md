@@ -39,7 +39,8 @@ It takes one of the following arguments:
 | Key | Value | Rules |
 | --- | ----- | ----- |
 | `accessMode` | `auditory` | If the publication contains a reference to an audio or video resource (inspect `resources` and `readingOrder` in RWPM). |
-| `accessMode` | `visual` | If the publications contains a reference to an image or a video resource (inspect `resources` and `readingOrder` in RWPM). |
+| `accessMode` | `textual` | If `textual` is inferred for `accessModeSufficient` (see below).<br>:warning: With the `--inspect-html` flag: also if any (X)HTML document of the reading order contains text. See [access modes inferred from documents](#access-modes-inferred-from-documents). |
+| `accessMode` | `visual` | If the reading order contains an image or a video resource (inspect `readingOrder` in RWPM). The ones which are only listed in `resources` are not enough.<br>:warning: With the `--inspect-html` flag: also if any (X)HTML document of the reading order contains an image or a video which is neither decorative nor a cover. See [access modes inferred from documents](#access-modes-inferred-from-documents). |
 | `accessModeSufficient` | `textual` | If the publication is partially or fully accessible (WCAG A or above).<br>Or if the publication does not contain any image, audio or video resource (inspect "resources" and "readingOrder" in RWPM)<br>Or if the only image available can be identified as a cover. `--infer-a11y-ignore-image-` flags extend this inference by counting ignored images as non available.|
 | `feature` | `displayTransformability` | :warning: This rule is only used with reflowable EPUB files that conform to WCAG AA or above. |
 | `feature` | `pageNavigation` | If the publications contains a page list (check for the presence of a `pageList` collection in RWPM). |
@@ -48,6 +49,23 @@ It takes one of the following arguments:
 | `feature` | `synchronizedAudioText` | If the publication contains any reference to Media Overlays. |
 | `feature` | `pageBreakMarkers` | :warning: This rule requires the `--inspect-html` flag. If any of the publication's (X)HTML documents contains a page break marker (`epub:type="pagebreak"` or `role="doc-pagebreak"`). |
 | `language` | BCP-47 language tags | :warning: This rule requires the `--inspect-html` flag, and is only used with `--infer-a11y=split`: inferred languages are never merged with the authored metadata. The languages declared in the publication's (X)HTML documents (`lang` or `xml:lang`), ordered by the number of strings found in each language, most used first. |
+
+Unless stated otherwise, an `accessMode` is only inferred from the manifest when the publication doesn't declare any.
+
+#### Access modes inferred from documents
+
+A manifest lists the images of a publication, but doesn't tell how they're used, and says nothing of the text. Combined with `--infer-a11y`, the `--inspect-html` flag reads the (X)HTML documents to find out:
+
+```sh
+readium manifest --inspect-html --infer-a11y=split publication.epub
+```
+
+- `textual` is inferred when a document contains text. The description of an image (such as its `alt`) is not text, and neither is the page number of a page break marker: a publication made of images is not `textual`, however well described they are.
+- `visual` is inferred when a document contains an image, an inline SVG or a video which is:
+  - not decorative, which takes a `role="presentation"` or a `role="none"`. An empty `alt` is not enough: these are common on images that do convey information.
+  - not a cover: the image is not the cover of the publication (`rel` is `cover` in RWPM), and neither it nor any of the elements it's in is marked as a cover (`epub:type="cover"` or `role="doc-cover"`).
+- Only the documents of the reading order are read, except for the navigation document if it's part of it. Documents with `linear="no"` in the spine of an EPUB are not read.
+- Unlike the access modes inferred from the manifest, these are inferred even when the publication declares its own. With `--infer-a11y=merged`, the missing ones are added to them: a publication declaring `textual` which has an illustration ends up with `["textual", "visual"]`. With `--infer-a11y=split`, only the ones the publication doesn't declare are listed in the inferred accessibility object.
 
 #### Inferred languages
 
@@ -59,7 +77,7 @@ readium manifest --inspect-html --infer-a11y=split publication.epub
 
 ```json
 "https://readium.org/webpub-manifest#inferredAccessibility": {
-  "accessMode": ["visual"],
+  "accessMode": ["textual", "visual"],
   "feature": ["tableOfContents"],
   "language": ["fr", "en-US"]
 }
@@ -167,9 +185,6 @@ readium manifest --infer-a11y=split moby-dick.epub | jq .metadata
   "http://www.idpf.org/2007/opf#version": "3.0",
   "https://github.com/readium/go-toolkit/releases": "v0.10.1",
   "https://readium.org/webpub-manifest#inferredAccessibility": {
-    "accessMode": [
-      "visual"
-    ],
     "feature": [
       "tableOfContents"
     ]
